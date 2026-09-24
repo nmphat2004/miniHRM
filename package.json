@@ -1,0 +1,26 @@
+{
+  "name": "minihrm-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mini HRM - Hệ thống Quản trị Tổ chức & Nhân sự Doanh nghiệp (Go + DynamoDB + Next.js)",
+  "scripts": {
+    "docker:up": "wsl -d Ubuntu bash -c \"cd /mnt/d/vscode/miniHRM && docker compose up -d\"",
+    "docker:down": "wsl -d Ubuntu bash -c \"cd /mnt/d/vscode/miniHRM && docker compose down\"",
+    "docker:status": "wsl -d Ubuntu docker ps",
+    "backend:dev": "go -C backend run ./cmd/server/main.go",
+    "backend:seed": "go -C backend run ./cmd/seed/main.go",
+    "backend:test": "go -C backend test -v ./...",
+    "backend:build": "go -C backend build -o server.exe ./cmd/server/main.go",
+    "frontend:install": "npm --prefix frontend install",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "seed": "npm run backend:seed",
+    "test": "npm run backend:test",
+    "dev": "concurrently -k -n \"DOCKER,BACKEND,FRONTEND\" -c \"cyan,blue,magenta\" \"npm run docker:up\" \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "dev:app": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,magenta\" \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
