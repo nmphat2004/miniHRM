@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_blank" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "status-archived": "#64748B", "primary": "#3525cd", "error": "#ba1a1a", "on-tertiary-container": "#ffd4a4", "secondary-fixed-dim": "#4edea3", "primary-hover": "#4338CA", "on-primary-fixed-variant": "#3323cc", "tertiary-fixed-dim": "#ffb95f", "on-secondary-fixed-variant": "#005236", "on-secondary": "#ffffff", "primary-fixed-dim": "#c3c0ff", "text-secondary-light": "#64748B", "on-background": "#131b2e", "depth-level-1": "#4338CA", "depth-level-4": "#6D28D9", "primary-light": "#EEF2FF", "depth-level-2": "#1D4ED8", "depth-level-3": "#0F766E", "on-primary-fixed": "#0f0069", "inverse-surface": "#283044", "on-surface": "#131b2e", "background-light": "#F8FAFC", "on-tertiary": "#ffffff", "surface": "#faf8ff", "on-error-container": "#93000a", "status-active": "#059669", "tertiary": "#684000", "status-resigned": "#71717A", "surface-container-low": "#f2f3ff", "inverse-on-surface": "#eef0ff", "outline": "#777587", "background": "#faf8ff", "secondary-fixed": "#6ffbbe", "surface-container-lowest": "#ffffff", "status-error": "#E11D48", "depth-level-5": "#7E22CE", "on-tertiary-fixed": "#2a1700", "surface-container-high": "#e2e7ff", "on-primary": "#ffffff", "surface-container": "#eaedff", "tertiary-container": "#885500", "surface-variant": "#dae2fd", "background-dark": "#020617", "surface-dim": "#d2d9f4", "on-tertiary-fixed-variant": "#653e00", "outline-variant": "#c7c4d8", "on-secondary-container": "#00714d", "surface-container-highest": "#dae2fd", "error-container": "#ffdad6", "inverse-primary": "#c3c0ff", "surface-card-light": "#FFFFFF", "secondary": "#006c49", "on-surface-variant": "#464555", "on-secondary-fixed": "#002113", "border-dark": "#1E293B", "on-error": "#ffffff", "surface-card-dark": "#0F172A", "surface-bright": "#faf8ff", "border-light": "#E2E8F0", "on-primary-container": "#dad7ff", "tertiary-fixed": "#ffddb8", "primary-dark": "#312E81", "primary-container": "#4f46e5", "surface-tint": "#4d44e3", "text-secondary-dark": "#94A3B8", "status-warning": "#D97706", "secondary-container": "#6cf8bb", "primary-fixed": "#e2dfff" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "space-xl": "2rem", "margin-tablet": "1.5rem", "margin": "1rem", "space-sm": "0.5rem", "gutter-desktop": "1.5rem", "space-xs": "0.25rem", "margin-desktop": "2rem", "gutter": "1rem", "space-md": "1rem", "space-lg": "1.5rem" }, "fontFamily": { "caption-medium": ["Inter"], "code-badge": ["JetBrains Mono"], "body-medium": ["Inter"], "code-mono": ["JetBrains Mono"], "caption-small": ["Inter"], "heading-h2": ["Plus Jakarta Sans"], "subheading-h3": ["Plus Jakarta Sans"], "display-h1": ["Plus Jakarta Sans"], "body-regular": ["Inter"], "display-h1-mobile": ["Plus Jakarta Sans"] }, "fontSize": { "caption-medium": ["12px", { "lineHeight": "16px", "fontWeight": "500" }], "code-badge": ["11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "600" }], "body-medium": ["14px", { "lineHeight": "20px", "fontWeight": "500" }], "code-mono": ["13px", { "lineHeight": "18px", "fontWeight": "400" }], "caption-small": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "heading-h2": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "subheading-h3": ["16px", { "lineHeight": "24px", "fontWeight": "600" }], "display-h1": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "body-regular": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "display-h1-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "700" }] } } } };</script></head><body class="bg-background min-h-screen flex flex-col font-body-regular text-body-regular text-on-surface"><main class="w-full flex-1 flex flex-col items-center justify-center p-space-md lg:p-space-xl"><div class="flex flex-col w-full items-center justify-center py-6 px-4">
+<!-- Network Status Warning Rail (Offline State Simulation Bar) -->
+<div class="w-full max-w-5xl mb-6 hidden bg-status-warning text-surface-container-lowest py-2.5 px-4 rounded-xl shadow-sm flex items-center justify-between transition-all" id="offline-banner">
+<div class="flex items-center gap-2.5 font-caption-medium text-caption-medium">
+<span class="material-symbols-outlined text-[18px]">wifi_off</span>
+<span>Mất kết nối mạng. Không thể gửi yêu cầu xác thực tới máy chủ AWS Cognito. Vui lòng kiểm tra đường truyền.</span>
+</div>
+<button class="text-caption-medium font-caption-medium underline hover:text-white px-2 py-0.5" onclick="toggleOfflineNotice(false)">Thử kết nối lại</button>
+</div>
+<!-- Interactive Scenario Controller for 6 Mandatory Lifecycle States -->
+<div class="w-full max-w-5xl mb-6 bg-surface-container-low p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
+<div class="flex items-center gap-2 text-on-surface-variant font-caption-medium text-caption-medium">
+<span class="material-symbols-outlined text-[18px] text-primary">tune</span>
+<span class="font-subheading-h3 text-caption-medium text-on-surface">Mô phỏng trạng thái UI (Design System States):</span>
+</div>
+<div class="flex flex-wrap items-center gap-1.5">
+<button class="px-3 py-1 rounded font-caption-medium text-caption-medium bg-primary text-on-primary shadow-sm transition-all" id="btn-state-normal" onclick="setSimState('normal')">Mặc định</button>
+<button class="px-3 py-1 rounded font-caption-medium text-caption-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all" id="btn-state-loading" onclick="setSimState('loading')">Đang xác thực</button>
+<button class="px-3 py-1 rounded font-caption-medium text-caption-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all" id="btn-state-error" onclick="setSimState('error')">Lỗi đăng nhập</button>
+<button class="px-3 py-1 rounded font-caption-medium text-caption-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all" id="btn-state-locked" onclick="setSimState('locked')">Khóa tài khoản</button>
+<button class="px-3 py-1 rounded font-caption-medium text-caption-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all" id="btn-state-offline" onclick="setSimState('offline')">Mất mạng (Offline)</button>
+<button class="px-3 py-1 rounded font-caption-medium text-caption-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all" id="btn-state-skeleton" onclick="setSimState('skeleton')">Khung nạp (Skeleton)</button>
+</div>
+</div>
+<!-- Main Split-Screen Container -->
+<div class="w-full max-w-5xl bg-surface-container-lowest rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+<!-- LEFT PANEL: Auth Form -->
+<div class="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-between relative bg-surface-card-light">
+<!-- Top Brand Header -->
+<div>
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center p-1.5 shadow-md">
+<img alt="Mini HRM Logo" class="w-full h-full object-contain filter brightness-0 invert" src="https://lh3.googleusercontent.com/aida/AEtjO1URzsHrIFEv7qaRpNGy-mGRkRVviHN3FD7qp8daDXg93F9OQWGAa8xYzaytjfxLdhJ5xv4YoAkFz2aLG2FaHFh3tS4jPPHfGiCULjCTIH15X4wOf-hLC_Gz97lTyOrUoYh2wHkHNgoCBmxLVFckYuG93NRug97YOmM6ba2J1rs7vha5XmEtTAV6ry4e0cpd47mAUQFzqBcyPoUqNRhO4crNszOxMu19-XJ9NUMSe3XgG2jwDLtUwddxwg"/>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-display-h1 text-heading-h2 text-on-surface tracking-tight">Mini HRM</span>
+<span class="px-2 py-0.5 rounded font-code-badge text-code-badge bg-primary-light text-primary font-semibold">v2.4 LTS</span>
+</div>
+<p class="font-caption-small text-caption-small text-text-secondary-light">Hệ thống Quản trị Tổ chức &amp; Nhân sự Doanh nghiệp</p>
+</div>
+</div>
+<!-- Micro Badge for Auth Context -->
+<div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-low text-depth-level-3 font-caption-small text-caption-small">
+<span class="material-symbols-outlined text-[14px]">verified_user</span>
+<span>Zero-Trust Sec</span>
+</div>
+</div>
+<!-- Section Title & Subheading -->
+<div class="mb-6">
+<h2 class="font-heading-h2 text-heading-h2 text-on-surface font-semibold tracking-tight">Đăng nhập tài khoản</h2>
+<p class="font-body-regular text-body-regular text-text-secondary-light mt-1">Truy cập cổng dữ liệu nhân sự tập trung và bảng cấu trúc phòng ban.</p>
+</div>
+<!-- Skeleton Form Placeholder (When Skeleton State is Active) -->
+<div class="hidden space-y-4 animate-pulse" id="skeleton-loader-view">
+<div class="h-4 bg-surface-container-high rounded w-1/3"></div>
+<div class="h-10 bg-surface-container rounded-md w-full"></div>
+<div class="h-4 bg-surface-container-high rounded w-1/4 mt-4"></div>
+<div class="h-10 bg-surface-container rounded-md w-full"></div>
+<div class="h-8 bg-surface-container-low rounded w-1/2 mt-4"></div>
+<div class="h-10 bg-surface-container-high rounded-md w-full mt-6"></div>
+</div>
+<!-- Actual Form Wrapper -->
+<form class="space-y-5" id="login-form-element" onsubmit="event.preventDefault(); simulateAuthProcess();">
+<!-- Error State Banner (Default hidden) -->
+<div class="hidden p-3.5 rounded-xl bg-error-container text-on-error-container" id="error-state-banner">
+<div class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-error text-[20px] shrink-0">error</span>
+<div class="flex-1">
+<div class="font-subheading-h3 text-caption-medium font-semibold text-error">Xác thực không thành công</div>
+<div class="font-caption-small text-caption-small text-on-error-container mt-0.5">Tài khoản hoặc mật khẩu không chính xác. Bạn còn <strong class="font-semibold">2 lần thử</strong> trước khi kích hoạt quy trình khóa tự động.</div>
+<div class="font-code-mono text-code-badge text-status-error mt-1">Lỗi: AUTH_INVALID_CREDENTIALS · Req ID: #983e-cognito</div>
+</div>
+</div>
+</div>
+<!-- Account Locked Callout (Default hidden) -->
+<div class="hidden p-4 rounded-xl bg-surface-container-highest text-on-surface" id="locked-state-banner">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-status-error text-[22px] shrink-0">lock_clock</span>
+<div class="flex-1">
+<div class="flex items-center justify-between">
+<span class="font-subheading-h3 text-caption-medium font-semibold text-error">Tài khoản bị tạm khóa 15 phút</span>
+<span class="font-code-badge text-code-badge bg-surface-card-light px-2 py-0.5 rounded text-error font-semibold">14:48</span>
+</div>
+<p class="font-caption-small text-caption-small text-on-surface-variant mt-1">Đã vượt quá 5 lần đăng nhập thất bại liên tiếp theo chính sách SEC-4029-BRUTEFORCE.</p>
+<div class="mt-2.5 flex items-center gap-3">
+<button class="font-caption-small text-caption-small font-caption-medium text-primary hover:text-primary-hover underline flex items-center gap-1" onclick="alert('Đã gửi thông báo khẩn cấp tới Quản trị viên IT.')" type="button">
+<span class="material-symbols-outlined text-[14px]">support_agent</span>
+                    Yêu cầu IT mở khóa khẩn cấp
+                  </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Input Field: Username / Employee Code -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="font-caption-medium text-caption-medium text-on-surface" for="identifier">Email công ty hoặc Mã nhân viên</label>
+<span class="font-code-badge text-code-badge text-text-secondary-light">Ví dụ: NV-0814</span>
+</div>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-text-secondary-light text-[20px] pointer-events-none">badge</span>
+<input class="w-full h-10 pl-10 pr-9 bg-surface-container-low rounded-lg font-body-regular text-body-regular text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-card-light transition-all font-mono" id="identifier" placeholder="ten.nhanvien@congty.com hoặc NV-xxxx" required="" type="text" value="tran.hoang@enterprise.com"/>
+<button class="absolute right-2.5 text-outline hover:text-on-surface p-1 rounded-md" onclick="document.getElementById('identifier').value=''" title="Xóa trường nhập" type="button">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+</div>
+<!-- Input Field: Password -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="font-caption-medium text-caption-medium text-on-surface" for="password-input">Mật khẩu bảo mật</label>
+<a class="font-caption-small text-caption-small text-primary hover:text-primary-hover font-caption-medium transition-colors" href="javascript:void(0)" onclick="alert('Vui lòng liên hệ Quản trị viên Nhân sự để nhận liên kết khôi phục thông qua AWS SES.')">
+                Quên mật khẩu?
+              </a>
+</div>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-text-secondary-light text-[20px] pointer-events-none">lock</span>
+<input class="w-full h-10 pl-10 pr-10 bg-surface-container-low rounded-lg font-body-regular text-body-regular text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-card-light transition-all" id="password-input" placeholder="Nhập mật khẩu tài khoản" required="" type="password" value="MiniHrmSecure2025#"/>
+<button class="absolute right-2.5 text-text-secondary-light hover:text-on-surface p-1 rounded-md transition-colors" onclick="togglePasswordVisibility()" title="Ẩn/Hiện mật khẩu" type="button">
+<span class="material-symbols-outlined text-[18px]" id="eye-icon">visibility</span>
+</button>
+</div>
+</div>
+<!-- Remember Session & HttpOnly Tooltip -->
+<div class="flex items-start justify-between gap-3 pt-1">
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary focus:ring-primary accent-primary" type="checkbox"/>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Duy trì phiên đăng nhập</span>
+</label>
+<div class="group relative flex items-center">
+<span class="font-code-badge text-code-badge text-depth-level-3 bg-secondary-fixed-dim/20 px-2 py-0.5 rounded cursor-help flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">cookie</span>
+                HttpOnly 30d
+              </span>
+<!-- Tooltip Hover Popover -->
+<div class="absolute bottom-full right-0 mb-2 w-64 p-2.5 bg-inverse-surface text-inverse-on-surface text-caption-small font-caption-small rounded-lg shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-20">
+                Phiên làm việc được ký điện tử lưu trong HttpOnly Cookie với cờ <code class="font-code-mono text-code-badge text-primary-fixed-dim">Secure; SameSite=Strict</code>, chống đánh cắp token qua XSS.
+              </div>
+</div>
+</div>
+<!-- Action Submit Button -->
+<button class="w-full h-11 bg-primary text-on-primary rounded-lg font-subheading-h3 text-body-medium font-semibold hover:bg-primary-hover active:scale-[0.99] shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer" id="btn-login-submit" type="submit">
+<span class="material-symbols-outlined text-[20px]" id="btn-submit-icon">login</span>
+<span id="btn-submit-text">Đăng nhập vào hệ thống</span>
+</button>
+<!-- Multi-tier SSO Option Divider -->
+<div class="relative py-2 flex items-center justify-center">
+<div class="absolute inset-0 flex items-center"><div class="w-full h-px bg-surface-container-high"></div></div>
+<span class="relative bg-surface-card-light px-3 font-caption-small text-caption-small text-text-secondary-light">hoặc sử dụng danh tính doanh nghiệp</span>
+</div>
+<!-- Enterprise Federated SSO Button -->
+<button class="w-full h-10 bg-surface-container-low hover:bg-surface-container text-on-surface rounded-lg font-caption-medium text-caption-medium flex items-center justify-center gap-2 transition-all" onclick="alert('Chuyển hướng tới cổng xác thực SAML 2.0 / Azure AD...');" type="button">
+<span class="material-symbols-outlined text-primary text-[18px]">domain_verification</span>
+<span>Đăng nhập thông qua SAML 2.0 / Azure AD SSO</span>
+</button>
+</form>
+</div>
+<!-- Security Notice Footnote -->
+<div class="pt-8 mt-6">
+<div class="flex items-center gap-2 mb-1 text-text-secondary-light">
+<span class="material-symbols-outlined text-status-active text-[16px]">security</span>
+<span class="font-caption-small text-caption-small font-semibold uppercase tracking-wider text-on-surface-variant">Bảo vệ danh tính tiêu chuẩn ngân hàng</span>
+</div>
+<p class="font-caption-small text-caption-small text-text-secondary-light leading-relaxed">
+          Xác thực đa lớp qua AWS Cognito. Phiên đăng nhập được mã hóa và lưu trữ an toàn trong HttpOnly Cookie tuân thủ tiêu chuẩn ISO/IEC 27001 và OWASP ASVS 4.0.
+        </p>
+</div>
+</div>
+<!-- RIGHT PANEL: Decorative Deep Graphic & Organization Stats -->
+<div class="lg:col-span-5 bg-gradient-to-br from-depth-level-1 via-primary to-primary-dark p-8 sm:p-10 text-on-primary flex flex-col justify-between relative overflow-hidden">
+<!-- Ambient Graphic Backdrops -->
+<div class="absolute -top-16 -right-16 w-64 h-64 bg-primary-fixed/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="absolute -bottom-20 -left-20 w-80 h-80 bg-secondary/20 rounded-full blur-3xl pointer-events-none"></div>
+<!-- Organization Hierarchy Preview Badge -->
+<div class="relative z-10">
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md font-caption-small text-caption-small text-white mb-6">
+<span class="material-symbols-outlined text-[16px] text-secondary-fixed">hub</span>
+<span>Kiến trúc phân cấp 5 tầng chuẩn hóa</span>
+</div>
+<h3 class="font-display-h1 text-heading-h2 text-white font-bold tracking-tight mb-2">
+          Điều hành 200–500 nhân sự với độ minh bạch tuyệt đối
+        </h3>
+<p class="font-body-regular text-body-regular text-primary-fixed-dim leading-relaxed mb-6">
+          Bản đồ tổ chức tương tác hỗ trợ kéo-thả phòng ban, nhật ký kiểm toán bất biến và bảo vệ quyền truy cập theo vai trò (RBAC).
+        </p>
+<!-- Dynamic Organizational Mini-Tree Visual Simulation -->
+<div class="space-y-2.5 bg-black/20 backdrop-blur-md p-4 rounded-xl">
+<!-- Root Tier -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-white/10">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary-fixed"></span>
+<span class="font-code-badge text-code-badge text-white font-medium">CORP · Tập đoàn Tổng bộ</span>
+</div>
+<span class="font-code-badge text-code-badge bg-depth-level-1 text-white px-2 py-0.5 rounded">Cấp 1</span>
+</div>
+<!-- Division Tier -->
+<div class="ml-4 flex items-center justify-between p-2 rounded-lg bg-white/10">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+<span class="font-code-badge text-code-badge text-white font-medium">DIV · Khối Công nghệ Phần mềm</span>
+</div>
+<span class="font-code-badge text-code-badge bg-depth-level-2 text-white px-2 py-0.5 rounded">Cấp 2</span>
+</div>
+<!-- Department Tier -->
+<div class="ml-8 flex items-center justify-between p-2 rounded-lg bg-white/10">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim"></span>
+<span class="font-code-badge text-code-badge text-white font-medium">DEP · Phòng Core Architecture</span>
+</div>
+<span class="font-code-badge text-code-badge bg-depth-level-3 text-white px-2 py-0.5 rounded">Cấp 3</span>
+</div>
+</div>
+</div>
+<!-- Real-time Cluster Metas -->
+<div class="relative z-10 pt-6 mt-6">
+<div class="grid grid-cols-2 gap-4">
+<div class="p-3 rounded-xl bg-white/10 backdrop-blur-sm">
+<div class="font-caption-small text-caption-small text-primary-fixed-dim">Nhân sự hoạt động</div>
+<div class="font-heading-h2 text-heading-h2 text-white font-bold mt-0.5">384 <span class="font-caption-small text-caption-small font-normal text-secondary-fixed">/ 412</span></div>
+<div class="flex items-center gap-1 font-caption-small text-caption-small text-emerald-300 mt-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span>Đồng bộ 100% AWS</span>
+</div>
+</div>
+<div class="p-3 rounded-xl bg-white/10 backdrop-blur-sm">
+<div class="font-caption-small text-caption-small text-primary-fixed-dim">Audit Logs (24h)</div>
+<div class="font-heading-h2 text-heading-h2 text-white font-bold mt-0.5">1,249</div>
+<div class="flex items-center gap-1 font-caption-small text-caption-small text-primary-fixed-dim mt-1">
+<span class="material-symbols-outlined text-[14px]">history</span>
+<span>Idempotent Safe</span>
+</div>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between font-caption-small text-caption-small text-primary-fixed-dim">
+<span>AWS Region: ap-southeast-1</span>
+<span class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Hệ thống ổn định
+          </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Global Trust Badges -->
+<div class="w-full max-w-5xl mt-6 flex flex-wrap items-center justify-center gap-6 text-text-secondary-light font-caption-small text-caption-small">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-depth-level-3">lock</span>
+<span>Bảo mật phiên HttpOnly</span>
+</div>
+<span class="text-surface-container-highest">•</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">account_tree</span>
+<span>Phân quyền đa tầng RBAC</span>
+</div>
+<span class="text-surface-container-highest">•</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-depth-level-1">cloud</span>
+<span>AWS Cognito Identity Provider</span>
+</div>
+<span class="text-surface-container-highest">•</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-status-active">verified</span>
+<span>ISO/IEC 27001 Certified</span>
+</div>
+</div>
+</div>
+<script>
+  function togglePasswordVisibility() {
+    const pwdInput = document.getElementById('password-input');
+    const eyeIcon = document.getElementById('eye-icon');
+    if (pwdInput.type === 'password') {
+      pwdInput.type = 'text';
+      eyeIcon.innerText = 'visibility_off';
+    } else {
+      pwdInput.type = 'password';
+      eyeIcon.innerText = 'visibility';
+    }
+  }
+
+  function toggleOfflineNotice(show) {
+    const banner = document.getElementById('offline-banner');
+    if (show) {
+      banner.classList.remove('hidden');
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  function simulateAuthProcess() {
+    const btn = document.getElementById('btn-login-submit');
+    const icon = document.getElementById('btn-submit-icon');
+    const label = document.getElementById('btn-submit-text');
+    
+    // Set in-flight state
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+    icon.classList.add('animate-spin');
+    icon.innerText = 'sync';
+    label.innerText = 'Đang xác thực với AWS Cognito...';
+
+    setTimeout(() => {
+      // Return to ready state and simulate success feedback
+      btn.disabled = false;
+      btn.classList.remove('opacity-75', 'cursor-not-allowed');
+      icon.classList.remove('animate-spin');
+      icon.innerText = 'login';
+      label.innerText = 'Đăng nhập vào hệ thống';
+      alert('Xác thực danh tính thành công! Đang chuyển hướng vào bảng điều hành tổ chức...');
+    }, 1800);
+  }
+
+  function setSimState(state) {
+    const form = document.getElementById('login-form-element');
+    const skeleton = document.getElementById('skeleton-loader-view');
+    const errorBanner = document.getElementById('error-state-banner');
+    const lockedBanner = document.getElementById('locked-state-banner');
+    const btn = document.getElementById('btn-login-submit');
+    const icon = document.getElementById('btn-submit-icon');
+    const label = document.getElementById('btn-submit-text');
+    
+    // Reset all tabs active styles
+    ['normal', 'loading', 'error', 'locked', 'offline', 'skeleton'].forEach(s => {
+      const b = document.getElementById('btn-state-' + s);
+      if (b) {
+        b.className = 'px-3 py-1 rounded font-caption-medium text-caption-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all';
+      }
+    });
+
+    const activeBtn = document.getElementById('btn-state-' + state);
+    if (activeBtn) {
+      activeBtn.className = 'px-3 py-1 rounded font-caption-medium text-caption-medium bg-primary text-on-primary shadow-sm transition-all';
+    }
+
+    // Reset base views
+    form.classList.remove('hidden');
+    skeleton.classList.add('hidden');
+    errorBanner.classList.add('hidden');
+    lockedBanner.classList.add('hidden');
+    toggleOfflineNotice(false);
+
+    btn.disabled = false;
+    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+    icon.classList.remove('animate-spin');
+    icon.innerText = 'login';
+    label.innerText = 'Đăng nhập vào hệ thống';
+
+    if (state === 'loading') {
+      btn.disabled = true;
+      btn.classList.add('opacity-75', 'cursor-not-allowed');
+      icon.classList.add('animate-spin');
+      icon.innerText = 'sync';
+      label.innerText = 'Đang xác thực với AWS Cognito...';
+    } else if (state === 'error') {
+      errorBanner.classList.remove('hidden');
+    } else if (state === 'locked') {
+      lockedBanner.classList.remove('hidden');
+      btn.disabled = true;
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else if (state === 'offline') {
+      toggleOfflineNotice(true);
+      btn.disabled = true;
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else if (state === 'skeleton') {
+      form.classList.add('hidden');
+      skeleton.classList.remove('hidden');
+    }
+  }
+</script></main></body></html>

@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"status-error":"#E11D48","depth-level-3":"#0F766E","tertiary-fixed":"#ffddb8","surface-bright":"#faf8ff","status-active":"#059669","surface":"#faf8ff","on-error-container":"#93000a","border-dark":"#1E293B","depth-level-5":"#7E22CE","surface-container":"#eaedff","on-primary-fixed":"#0f0069","inverse-on-surface":"#eef0ff","surface-container-lowest":"#ffffff","status-warning":"#D97706","on-tertiary-fixed":"#2a1700","outline":"#777587","background-light":"#F8FAFC","secondary-fixed-dim":"#4edea3","on-secondary":"#ffffff","outline-variant":"#c7c4d8","on-primary-fixed-variant":"#3323cc","primary-hover":"#4338CA","background-dark":"#020617","on-primary-container":"#dad7ff","primary":"#3525cd","surface-variant":"#dae2fd","surface-container-high":"#e2e7ff","surface-dim":"#d2d9f4","error-container":"#ffdad6","on-background":"#131b2e","tertiary":"#684000","depth-level-1":"#4338CA","depth-level-4":"#6D28D9","tertiary-fixed-dim":"#ffb95f","inverse-primary":"#c3c0ff","primary-fixed-dim":"#c3c0ff","primary-light":"#EEF2FF","depth-level-2":"#1D4ED8","primary-container":"#4f46e5","status-resigned":"#71717A","surface-container-highest":"#dae2fd","surface-tint":"#4d44e3","on-primary":"#ffffff","background":"#faf8ff","surface-card-dark":"#0F172A","inverse-surface":"#283044","border-light":"#E2E8F0","error":"#ba1a1a","secondary":"#006c49","text-secondary-light":"#64748B","on-tertiary":"#ffffff","on-surface":"#131b2e","on-secondary-container":"#00714d","primary-dark":"#312E81","primary-fixed":"#e2dfff","on-tertiary-fixed-variant":"#653e00","on-tertiary-container":"#ffd4a4","secondary-fixed":"#6ffbbe","on-secondary-fixed-variant":"#005236","text-secondary-dark":"#94A3B8","secondary-container":"#6cf8bb","status-archived":"#64748B","tertiary-container":"#885500","surface-container-low":"#f2f3ff","on-surface-variant":"#464555","on-secondary-fixed":"#002113","surface-card-light":"#FFFFFF","on-error":"#ffffff"},borderRadius:{DEFAULT:"0.125rem",lg:"0.25rem",xl:"0.5rem",full:"0.75rem"},spacing:{"margin-tablet":"1.5rem","gutter-desktop":"1.5rem","space-lg":"1.5rem","gutter":"1rem","space-md":"1rem","margin-desktop":"2rem","space-xs":"0.25rem","space-sm":"0.5rem","space-xl":"2rem",margin:"1rem"},fontFamily:{"code-badge":["JetBrains Mono"],"subheading-h3":["Plus Jakarta Sans"],"caption-small":["Inter"],"body-regular":["Inter"],"caption-medium":["Inter"],"heading-h2":["Plus Jakarta Sans"],"display-h1":["Plus Jakarta Sans"],"body-medium":["Inter"],"display-h1-mobile":["Plus Jakarta Sans"],"code-mono":["JetBrains Mono"]},fontSize:{"code-badge":["11px",{lineHeight:"14px",letterSpacing:"0.02em",fontWeight:"600"}],"subheading-h3":["16px",{lineHeight:"24px",fontWeight:"600"}],"caption-small":["12px",{lineHeight:"16px",fontWeight:"400"}],"body-regular":["14px",{lineHeight:"20px",fontWeight:"400"}],"caption-medium":["12px",{lineHeight:"16px",fontWeight:"500"}],"heading-h2":["20px",{lineHeight:"28px",letterSpacing:"-0.01em",fontWeight:"600"}],"display-h1":["28px",{lineHeight:"36px",letterSpacing:"-0.02em",fontWeight:"700"}],"body-medium":["14px",{lineHeight:"20px",fontWeight:"500"}],"display-h1-mobile":["24px",{lineHeight:"32px",letterSpacing:"-0.015em",fontWeight:"700"}],"code-mono":["13px",{lineHeight:"18px",fontWeight:"400"}]}}}};</script></head><body class="bg-surface font-body-regular text-on-surface antialiased"><div class="w-full bg-status-warning text-white font-caption-medium text-caption-medium py-2 px-margin-desktop flex items-center justify-between shadow-sm relative z-50" id="offline-banner"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">wifi_off</span><span>Mất kết nối tới máy chủ. Hệ thống đang thử kết nối lại...</span></div><button class="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded font-caption-medium text-caption-small transition-all">Thử lại</button></div><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex flex-col justify-between"><div class="flex flex-col"><div class="h-16 px-space-md flex items-center justify-between"><div class="flex items-center gap-2"><img alt="Mini HRM Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1Ufl58tQkeRkPlDuZrJRsmv8D3iSHS18l7Jf2H7bwdTJyzz_lexT6ue6EIRlC_dxnmhnu8_InjLM8z5LTUNq27bIV3hfj0KKC0ytUSKEM56iqYu5c_eUI4RD7i1xl3zeC7WG87bUT-2gsPjCU5ZHnBmWwuIF0tG5-wrDx2SXzk2q_8J3kkh11EfKA_23XB1x2Uv5MKtmbSc93p1DHTN-nuIXDCQtmUHDZAK08bZyH73ICSo2DnirW3X0mc"/><span class="font-heading-h2 text-subheading-h3 text-on-surface">Mini HRM</span></div><span class="px-1.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed-variant font-code-badge text-code-badge">v1.0</span></div><div class="px-space-md py-space-xs"><p class="text-caption-small font-caption-small text-on-surface-variant uppercase tracking-wider mb-2">Quản lý tổ chức</p><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary-container font-medium rounded-xl"><a aria-current="page" class="flex items-center justify-between px-3 py-2 transition-all bg-primary-container text-on-primary-container font-medium rounded-xl" data-path="departments" href="#"><div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[20px]">account_tree</span><span class="font-body-medium text-body-medium">Sơ đồ Phòng ban</span></div></a><a class="flex items-center justify-between px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="employees" href="#"><div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[20px]">badge</span><span class="font-body-medium text-body-medium">Danh sách Nhân viên</span></div></a><a class="flex items-center justify-between px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="audit-logs" href="#"><div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[20px]">history_toggle_off</span><span class="font-body-medium text-body-medium">Nhật ký Hệ thống</span></div><span class="px-1.5 py-0.5 rounded bg-primary-light text-primary font-code-badge text-code-badge">Admin</span></a><a class="flex items-center justify-between px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="profile" href="#"><div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[20px]">person</span><span class="font-body-medium text-body-medium">Hồ sơ của tôi</span></div></a></nav></div></div><div class="p-space-md m-space-sm bg-surface-container-low rounded-xl flex items-center justify-between"><div class="flex items-center gap-2.5 min-w-0"><div class="w-9 h-9 rounded-full bg-primary flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex flex-col min-w-0"><span class="font-body-medium text-body-medium text-on-surface truncate">Nguyễn Văn An</span><span class="font-caption-small text-caption-small text-on-primary-fixed-variant truncate">Quản trị viên</span></div></div><button aria-label="Đăng xuất" class="text-on-surface-variant hover:text-status-error p-1.5 rounded-lg hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined text-[20px]">logout</span></button></div></aside><div class="pl-64 flex flex-col min-h-screen"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-30 flex items-center justify-between px-gutter-desktop"><div class="flex items-center gap-space-sm font-caption-medium text-caption-medium text-on-surface-variant"><span class="hover:text-on-surface cursor-pointer">Công ty</span><span class="material-symbols-outlined text-[14px]">chevron_right</span><span class="hover:text-on-surface cursor-pointer">Khối Công nghệ</span><span class="material-symbols-outlined text-[14px]">chevron_right</span><span class="font-body-medium text-on-surface">Phòng Backend</span></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-caption-medium text-caption-small"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-active opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-status-active"></span></span><span>Trực tuyến</span></div><div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-container-low text-on-surface-variant font-caption-small text-caption-small cursor-pointer hover:bg-surface-container"><span class="material-symbols-outlined text-[16px]">search</span><span>Tìm kiếm nhanh...</span><kbd class="px-1.5 py-0.5 bg-surface-container-lowest text-on-surface-variant rounded shadow-sm font-code-badge text-code-badge">Ctrl+K</kbd></div><button aria-label="Thông báo" class="relative p-2 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-status-error"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="w-full pt-16 flex-1 bg-surface px-gutter-desktop py-space-md"><div class="flex flex-col w-full gap-space-lg">
+<!-- Interactive Network Alert Bar (Offline & Write-Lock State) -->
+<div class="w-full bg-status-warning text-white rounded-xl p-space-sm shadow-md flex items-center justify-between transition-all duration-300" id="runtime-offline-banner">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px] text-white">cloud_off</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-body-medium text-body-medium font-semibold text-white">Chế độ Ngoại tuyến Tạm thời</span>
+<span class="px-2 py-0.2 bg-white/20 rounded font-code-badge text-code-badge text-white uppercase tracking-wider">Write-Lock Active</span>
+</div>
+<p class="font-caption-small text-caption-small text-white/90">
+          Mất kết nối thời gian thực tới máy chủ. Tất cả các thao tác ghi dữ liệu đã được khóa tự động để bảo toàn cấu trúc cây tổ chức.
+        </p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 bg-white text-status-warning rounded-lg font-caption-medium text-caption-small hover:bg-white/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5" id="retry-btn" onclick="simulateReconnect()">
+<span class="material-symbols-outlined text-[16px] animate-spin hidden" id="retry-spinner">sync</span>
+<span>Thử lại ngay</span>
+</button>
+<button class="p-1 text-white/80 hover:text-white rounded-md hover:bg-white/10 transition-colors" onclick="dismissOfflineBanner()" title="Ẩn cảnh báo">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<!-- Page Header & Action Vectors -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
+<div class="flex flex-col gap-1 max-w-2xl">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed-variant font-code-badge text-code-badge">
+          TREE-GRAPH v2.4
+        </span>
+<span class="font-caption-small text-caption-small text-on-surface-variant flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-status-active"></span>
+          Đồng bộ tự động mỗi 60s
+        </span>
+</div>
+<h1 class="font-display-h1 text-display-h1 text-on-surface tracking-tight">
+        Tổng quan Cơ cấu Tổ chức & Phòng ban
+      </h1>
+<p class="font-body-regular text-body-regular text-on-surface-variant">
+        Quản lý phân cấp cây tổ chức (Khối - Phòng - Tổ), định biên nhân sự và cấu trúc doanh nghiệp đa tầng.
+      </p>
+</div>
+<!-- CTAs -->
+<div class="flex items-center gap-space-sm flex-shrink-0">
+<button class="h-9 px-4 rounded-xl bg-surface-container text-on-surface font-body-medium text-body-medium hover:bg-surface-container-high transition-all flex items-center gap-2 shadow-sm" onclick="triggerExportReport()">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">download</span>
+<span>Xuất báo cáo sơ đồ</span>
+</button>
+<button class="h-9 px-4 rounded-xl bg-primary text-on-primary font-body-medium text-body-medium hover:bg-primary-hover active:scale-[0.98] transition-all flex items-center gap-2 shadow-md" onclick="openAddDeptModal()">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span>+ Thêm phòng ban mới</span>
+</button>
+</div>
+</div>
+<!-- Summary KPI Bento Grid (4 Metrics) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- Metric 1: Headcount -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
+<div class="flex items-center justify-between">
+<span class="font-caption-medium text-caption-medium text-on-surface-variant uppercase tracking-wider">Tổng nhân sự</span>
+<div class="w-9 h-9 rounded-xl bg-primary-light text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">group</span>
+</div>
+</div>
+<div class="mt-space-md flex flex-col">
+<div class="flex items-baseline gap-2">
+<span class="font-display-h1 text-display-h1 text-on-surface">348</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">nhân sự</span>
+</div>
+<div class="mt-2 flex items-center gap-1.5 text-status-active">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-caption-medium text-caption-small">+12 nhân sự mới tháng này</span>
+</div>
+</div>
+</div>
+<!-- Metric 2: Department Units -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
+<div class="flex items-center justify-between">
+<span class="font-caption-medium text-caption-medium text-on-surface-variant uppercase tracking-wider">Tổng phòng ban</span>
+<div class="w-9 h-9 rounded-xl bg-surface-container text-depth-level-2 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">hub</span>
+</div>
+</div>
+<div class="mt-space-md flex flex-col">
+<div class="flex items-baseline gap-2">
+<span class="font-display-h1 text-display-h1 text-on-surface">24</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">đơn vị trực thuộc</span>
+</div>
+<div class="mt-2 flex items-center gap-1 font-caption-medium text-caption-small text-on-surface-variant">
+<span class="px-1.5 py-0.2 rounded bg-surface-container text-depth-level-1 font-code-badge text-code-badge">5 CẤP PHÂN TẦNG</span>
+<span>(100% kết nối)</span>
+</div>
+</div>
+</div>
+<!-- Metric 3: Headcount Allocation -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
+<div class="flex items-center justify-between">
+<span class="font-caption-medium text-caption-medium text-on-surface-variant uppercase tracking-wider">Lấp đầy định biên</span>
+<div class="w-9 h-9 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">fact_check</span>
+</div>
+</div>
+<div class="mt-space-md flex flex-col">
+<div class="flex items-baseline justify-between">
+<span class="font-display-h1 text-display-h1 text-on-surface">94.2%</span>
+<span class="font-caption-medium text-caption-small text-on-surface-variant">Mục tiêu: 95.0%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 mt-2 overflow-hidden">
+<div class="bg-secondary h-full rounded-full transition-all duration-700" style="width: 94.2%;"></div>
+</div>
+</div>
+</div>
+<!-- Metric 4: Latest Audit -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
+<div class="flex items-center justify-between">
+<span class="font-caption-medium text-caption-medium text-on-surface-variant uppercase tracking-wider">Thay đổi cơ cấu</span>
+<div class="w-9 h-9 rounded-xl bg-surface-container-high text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">history_edu</span>
+</div>
+</div>
+<div class="mt-space-md flex flex-col">
+<div class="flex items-baseline gap-2">
+<span class="font-heading-h2 text-heading-h2 text-on-surface">2 giờ trước</span>
+</div>
+<div class="mt-2 flex items-center justify-between">
+<span class="font-caption-small text-caption-small text-on-surface-variant truncate">ID: #AUD-8824 Reassigned</span>
+<a class="font-caption-medium text-caption-small text-primary hover:underline" href="#">Chi tiết</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Operational Workspace: Split Panels (Department Tree Canvas + Live Intelligence Panel) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
+<!-- Primary Canvas (8 Cols): Tree Controls & Node Hierarchy View -->
+<div class="lg:col-span-8 flex flex-col gap-space-md">
+<!-- Quick Filter Bar -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-space-md">
+<!-- Search Input with Monospace Code Anchor -->
+<div class="relative w-full md:w-80">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-on-surface-variant">search</span>
+<input class="w-full h-9 pl-9 pr-3 rounded-lg bg-surface-container-low font-body-regular text-body-regular text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(53,37,205,0.2)] transition-all" id="dept-search-input" placeholder="Tìm phòng ban, mã code, trưởng phòng..." type="text"/>
+</div>
+<!-- Filter Selectors -->
+<div class="flex items-center gap-space-sm w-full md:w-auto flex-wrap">
+<div class="flex items-center gap-1.5 bg-surface-container-low px-2 py-1 rounded-lg">
+<span class="font-caption-small text-caption-small text-on-surface-variant">Cấp:</span>
+<select class="bg-transparent font-caption-medium text-caption-small text-on-surface focus:outline-none cursor-pointer">
+<option value="all">Tất cả các cấp (1 - 5)</option>
+<option value="1">Cấp 1 - Tổng Công ty</option>
+<option value="2">Cấp 2 - Khối (Division)</option>
+<option value="3">Cấp 3 - Phòng ban (Department)</option>
+<option value="4">Cấp 4 - Tổ / Nhóm (Team)</option>
+<option value="5">Cấp 5 - Đơn vị nhỏ (Unit)</option>
+</select>
+</div>
+<div class="flex items-center gap-1.5 bg-surface-container-low px-2 py-1 rounded-lg">
+<span class="font-caption-small text-caption-small text-on-surface-variant">Trạng thái:</span>
+<select class="bg-transparent font-caption-medium text-caption-small text-on-surface focus:outline-none cursor-pointer">
+<option value="active">Hoạt động (Active)</option>
+<option value="archived">Lưu trữ (Archived)</option>
+<option value="draft">Bản nháp (Draft)</option>
+</select>
+</div>
+<button class="p-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" onclick="toggleExpandAll()" title="Mở rộng/Thu gọn toàn bộ">
+<span class="material-symbols-outlined text-[18px]">unfold_more</span>
+</button>
+</div>
+</div>
+<!-- Department Tree Hierarchy Section -->
+<div class="flex flex-col gap-space-md">
+<!-- Tree Connection Visualiser Header -->
+<div class="flex items-center justify-between px-space-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">account_tree</span>
+<span class="font-subheading-h3 text-subheading-h3 text-on-surface">Cấu trúc Nhánh Hoạt động</span>
+</div>
+<span class="font-code-mono text-code-mono text-on-surface-variant">ROOT: /VN-HOLDING/TECH</span>
+</div>
+<!-- Node 1: Tier 2 Division (Khối Công nghệ & Sản phẩm) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col gap-space-sm group">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="font-code-badge text-code-badge px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-mono">
+                TECH-DIV
+              </span>
+<span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-caption-medium text-caption-small">
+                Cấp 2 • Khối
+              </span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-caption-medium text-caption-small flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-status-active"></span>
+                ACTIVE
+              </span>
+<button class="p-1 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="flex items-start justify-between">
+<div>
+<h3 class="font-heading-h2 text-subheading-h3 text-on-surface group-hover:text-primary transition-colors">
+                Khối Công nghệ & Sản phẩm
+              </h3>
+<p class="font-caption-small text-caption-small text-on-surface-variant mt-0.5">
+                Chịu trách nhiệm toàn bộ hạ tầng kỹ thuật, sản phẩm số và kiến trúc vi dịch vụ cốt lõi.
+              </p>
+</div>
+</div>
+<!-- Metadata Footer -->
+<div class="pt-space-sm mt-1 bg-surface-container-low/60 p-2.5 rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-caption-medium text-caption-small">
+                TMQ
+              </div>
+<div class="flex flex-col">
+<span class="font-caption-medium text-caption-small text-on-surface font-semibold">Trần Minh Quân</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Giám đốc Khối Công nghệ</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1 text-on-surface-variant font-code-mono text-caption-small">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+<span class="font-semibold text-on-surface">142</span> định biên
+              </div>
+<button class="text-primary hover:underline font-caption-medium text-caption-small flex items-center">
+<span>Chi nhánh con (6)</span>
+<span class="material-symbols-outlined text-[16px]">expand_less</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Node 2: Tier 3 Department (Phòng Backend Platform) - Indented with visual connector -->
+<div class="ml-6 pl-4 relative flex flex-col gap-space-sm">
+<!-- Flow Indicator Guide Line -->
+<div class="absolute -left-3 top-0 bottom-0 w-0.5 bg-surface-container-high"></div>
+<div class="absolute -left-3 top-6 w-3 h-0.5 bg-surface-container-high"></div>
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col gap-space-sm group">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="font-code-badge text-code-badge px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-mono">
+                  BE-DEPT
+                </span>
+<span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 font-caption-medium text-caption-small">
+                  Cấp 3 • Phòng ban
+                </span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-caption-medium text-caption-small flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-status-active"></span>
+                  ACTIVE
+                </span>
+<button class="p-1 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="flex items-start justify-between">
+<div>
+<h3 class="font-heading-h2 text-subheading-h3 text-on-surface group-hover:text-primary transition-colors">
+                  Phòng Backend Platform
+                </h3>
+<p class="font-caption-small text-caption-small text-on-surface-variant mt-0.5">
+                  Quản lý hệ thống phân tán, cơ sở dữ liệu cao tải và đồng bộ hoá message queue.
+                </p>
+</div>
+</div>
+<div class="pt-space-sm mt-1 bg-surface-container-low/60 p-2.5 rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-depth-level-3/15 text-depth-level-3 flex items-center justify-center font-caption-medium text-caption-small">
+                  LHL
+                </div>
+<div class="flex flex-col">
+<span class="font-caption-medium text-caption-small text-on-surface font-semibold">Lê Hoàng Long</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Trưởng phòng</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1 text-on-surface-variant font-code-mono text-caption-small">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+<span class="font-semibold text-on-surface">38</span> định biên
+                </div>
+<span class="px-2 py-0.5 bg-primary-light text-primary rounded font-caption-small text-caption-small">97% Target</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Node 3: Tier 4 Team (Tổ API Core & Microservices) - Deeper Indentation -->
+<div class="ml-12 pl-4 relative flex flex-col gap-space-sm">
+<!-- Flow Indicator Guide Line -->
+<div class="absolute -left-3 top-0 bottom-0 w-0.5 bg-surface-container-high"></div>
+<div class="absolute -left-3 top-6 w-3 h-0.5 bg-surface-container-high"></div>
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col gap-space-sm group">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="font-code-badge text-code-badge px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-mono">
+                  API-TEAM
+                </span>
+<span class="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 font-caption-medium text-caption-small">
+                  Cấp 4 • Tổ / Nhóm
+                </span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-caption-medium text-caption-small flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-status-active"></span>
+                  ACTIVE
+                </span>
+<button class="p-1 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div>
+<h3 class="font-subheading-h3 text-subheading-h3 text-on-surface group-hover:text-primary transition-colors">
+                Tổ API Core & Microservices
+              </h3>
+<p class="font-caption-small text-caption-small text-on-surface-variant mt-0.5">
+                Đảm bảo SLA > 99.95% cho các dịch vụ thanh toán và gateway kết nối đối tác.
+              </p>
+</div>
+<div class="pt-space-sm mt-1 bg-surface-container-low/60 p-2.5 rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-depth-level-4/15 text-depth-level-4 flex items-center justify-center font-caption-medium text-caption-small">
+                  PTH
+                </div>
+<div class="flex flex-col">
+<span class="font-caption-medium text-caption-small text-on-surface font-semibold">Phạm Thu Hà</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Trưởng tổ kỹ thuật</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1 text-on-surface-variant font-code-mono text-caption-small">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+<span class="font-semibold text-on-surface">14</span> định biên
+                </div>
+<span class="px-1.5 py-0.5 rounded bg-surface-container font-code-badge text-code-badge text-on-surface-variant">Tier-4 Lead</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Node 4: Tier 3 Department with Vacant Lead (Phòng Thiết kế Giao diện UI/UX) -->
+<div class="ml-6 pl-4 relative flex flex-col gap-space-sm">
+<div class="absolute -left-3 top-0 h-10 w-0.5 bg-surface-container-high"></div>
+<div class="absolute -left-3 top-6 w-3 h-0.5 bg-surface-container-high"></div>
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col gap-space-sm group">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="font-code-badge text-code-badge px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-mono">
+                  DESIGN-DEPT
+                </span>
+<span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 font-caption-medium text-caption-small">
+                  Cấp 3 • Phòng ban
+                </span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-caption-medium text-caption-small flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                  KHUYẾT LÃNH ĐẠO
+                </span>
+<button class="p-1 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="flex items-start justify-between">
+<div>
+<h3 class="font-heading-h2 text-subheading-h3 text-on-surface group-hover:text-primary transition-colors">
+                  Phòng Thiết kế Giao diện (UI/UX)
+                </h3>
+<p class="font-caption-small text-caption-small text-on-surface-variant mt-0.5">
+                  Nghiên cứu hành vi người dùng, kiến trúc trải nghiệm ứng dụng di động & Web Portal.
+                </p>
+</div>
+</div>
+<!-- Warning State Manager Alert -->
+<div class="pt-space-sm mt-1 bg-error-container/30 p-2.5 rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-status-error/10 text-status-error flex items-center justify-center font-caption-medium text-caption-small">
+<span class="material-symbols-outlined text-[16px]">person_off</span>
+</div>
+<div class="flex flex-col">
+<span class="font-caption-medium text-caption-small text-status-error font-semibold">Chưa bổ nhiệm Trưởng phòng</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Cần chỉ định người quản lý trước kỳ đánh giá Q3</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1 text-on-surface-variant font-code-mono text-caption-small">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+<span class="font-semibold text-on-surface">16</span> định biên
+                </div>
+<button class="px-2.5 py-1 bg-surface-container text-primary font-caption-medium text-caption-small rounded-lg hover:bg-primary hover:text-white transition-all" onclick="openAssignManagerModal()">
+                  Bổ nhiệm ngay
+                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary Sidebar (4 Cols): Operational Intelligence & Audit Diff -->
+<div class="lg:col-span-4 flex flex-col gap-space-md">
+<!-- Executive Overview Card with Visual Donut -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-subheading-h3 text-subheading-h3 text-on-surface">Phân bổ Nhân sự Theo Cấp</span>
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">pie_chart</span>
+</div>
+<div class="py-2 flex items-center justify-center">
+<!-- Mini SVG Radial Chart -->
+<div class="relative flex items-center justify-center">
+<svg class="w-40 h-40 transform -rotate-90" viewbox="0 0 120 120">
+<circle class="text-surface-container" cx="60" cy="60" fill="transparent" r="50" stroke="currentColor" stroke-width="12"></circle>
+<!-- Tech Div (41%) -->
+<circle class="text-primary" cx="60" cy="60" fill="transparent" r="50" stroke="currentColor" stroke-dasharray="314" stroke-dashoffset="185" stroke-linecap="round" stroke-width="12"></circle>
+<!-- Ops/Design (28%) -->
+<circle class="text-depth-level-3" cx="60" cy="60" fill="transparent" r="50" stroke="currentColor" stroke-dasharray="314" stroke-dashoffset="240" stroke-linecap="round" stroke-width="12"></circle>
+<!-- Business (25%) -->
+<circle class="text-depth-level-5" cx="60" cy="60" fill="transparent" r="50" stroke="currentColor" stroke-dasharray="314" stroke-dashoffset="260" stroke-linecap="round" stroke-width="12"></circle>
+</svg>
+<div class="absolute flex flex-col items-center justify-center text-center">
+<span class="font-display-h1 text-heading-h2 text-on-surface">348</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Nhân sự</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-2 mt-1">
+<div class="flex items-center justify-between font-caption-small text-caption-small">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+<span class="text-on-surface font-medium">Khối Công nghệ</span>
+</div>
+<span class="font-code-mono text-on-surface-variant">142 (40.8%)</span>
+</div>
+<div class="flex items-center justify-between font-caption-small text-caption-small">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-depth-level-3"></span>
+<span class="text-on-surface font-medium">Khối Vận hành</span>
+</div>
+<span class="font-code-mono text-on-surface-variant">118 (33.9%)</span>
+</div>
+<div class="flex items-center justify-between font-caption-small text-caption-small">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-depth-level-5"></span>
+<span class="text-on-surface font-medium">Khối Kinh doanh & MKT</span>
+</div>
+<span class="font-code-mono text-on-surface-variant">88 (25.3%)</span>
+</div>
+</div>
+</div>
+<!-- Audit Diff Viewer Card (Mandatory Spec 6.3) -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-tertiary">swap_horiz</span>
+<span class="font-subheading-h3 text-subheading-h3 text-on-surface">So sánh Thay đổi (Audit Log)</span>
+</div>
+<span class="font-code-badge text-code-badge px-2 py-0.5 rounded bg-surface-container text-on-surface-variant">#AUD-8824</span>
+</div>
+<p class="font-caption-small text-caption-small text-on-surface-variant">
+          Nhân sự <span class="font-semibold text-on-surface">Đỗ Thùy Trang (HR-0042)</span> được điều chuyển chi nhánh trực thuộc bởi Admin.
+        </p>
+<!-- Diff Comparison Layout -->
+<div class="flex flex-col gap-2 mt-1">
+<!-- Removed / Before -->
+<div class="bg-rose-50/70 text-rose-900 rounded p-2.5 font-code-mono text-code-badge flex items-start gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[16px] text-status-error flex-shrink-0">remove_circle_outline</span>
+<div class="flex flex-col">
+<span class="font-bold text-status-error">TRƯỚC (BEFORE):</span>
+<span>ParentNode: /TECH/OLD-QA-TEAM</span>
+<span>Chức danh: QA Manual Lead</span>
+<span>Lương định mức: Band 3.2</span>
+</div>
+</div>
+<!-- Added / After -->
+<div class="bg-emerald-50/70 text-emerald-900 rounded p-2.5 font-code-mono text-code-badge flex items-start gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[16px] text-status-active flex-shrink-0">add_circle_outline</span>
+<div class="flex flex-col">
+<span class="font-bold text-status-active">SAU (AFTER):</span>
+<span>ParentNode: /TECH/BE-DEPT/API-TEAM</span>
+<span>Chức danh: QA Automation Engineer</span>
+<span>Lương định mức: Band 4.1</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="font-caption-small text-caption-small text-on-surface-variant">Thời gian: 14:32:09 Hôm nay</span>
+<button class="font-caption-medium text-caption-small text-primary hover:underline flex items-center gap-1">
+<span>Toàn bộ nhật ký</span>
+<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Quick Action / Security Checklist -->
+<div class="bg-surface-container-low p-space-md rounded-xl shadow-sm flex flex-col gap-space-sm">
+<span class="font-subheading-h3 text-subheading-h3 text-on-surface">Cảnh báo Cấu trúc</span>
+<div class="flex flex-col gap-2.5">
+<div class="flex items-start gap-2.5 bg-surface-container-lowest p-2.5 rounded-lg shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-status-warning flex-shrink-0">assignment_late</span>
+<div class="flex flex-col">
+<span class="font-caption-medium text-caption-small text-on-surface font-semibold">1 phòng ban khuyết quản lý</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Phòng Thiết kế Giao diện (UI/UX) chưa có Lead.</span>
+</div>
+</div>
+<div class="flex items-start gap-2.5 bg-surface-container-lowest p-2.5 rounded-lg shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-status-active flex-shrink-0">verified</span>
+<div class="flex flex-col">
+<span class="font-caption-medium text-caption-small text-on-surface font-semibold">Cây thư mục hợp lệ</span>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Không có vòng lặp (No circular references) trong 24 node.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive System Dialog: Logout Confirmation (Mandatory Spec 5) -->
+<div class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200" id="logout-modal-backdrop">
+<div class="bg-surface-container-lowest rounded-xl p-space-lg max-w-md w-full shadow-2xl flex flex-col gap-space-md transform scale-95 transition-transform duration-200" id="logout-modal-card">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[24px]">power_settings_new</span>
+</div>
+<div class="flex flex-col">
+<h4 class="font-heading-h2 text-heading-h2 text-on-surface">Xác nhận Đăng xuất</h4>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Phiên làm việc quản trị: Nguyễn Văn An</span>
+</div>
+</div>
+<p class="font-body-regular text-body-regular text-on-surface-variant">
+        Bạn có chắc chắn muốn kết thúc phiên đăng nhập hiện tại không? Mọi thay đổi chưa lưu trên sơ đồ cây tổ chức sẽ bị hoàn tác.
+      </p>
+<div class="flex items-center justify-end gap-space-sm pt-space-xs">
+<button class="h-9 px-4 rounded-xl bg-surface-container text-on-surface font-body-medium text-body-medium hover:bg-surface-container-high transition-colors" onclick="closeLogoutModal()">
+          Hủy bỏ
+        </button>
+<button class="h-9 px-4 rounded-xl bg-status-error text-white font-body-medium text-body-medium hover:bg-rose-700 shadow-md transition-all flex items-center gap-1.5" onclick="confirmLogoutAction()">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+<span>Đăng xuất an toàn</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Interactive Quick Department Create Drawer/Modal Preview -->
+<div class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200" id="add-dept-backdrop">
+<div class="bg-surface-container-lowest rounded-xl p-space-lg max-w-lg w-full shadow-2xl flex flex-col gap-space-md transform scale-95 transition-transform duration-200" id="add-dept-card">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-xl bg-primary-light text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">account_tree</span>
+</div>
+<div>
+<h4 class="font-heading-h2 text-heading-h2 text-on-surface">Thêm Phòng ban / Nhánh Mới</h4>
+<span class="font-caption-small text-caption-small text-on-surface-variant">Cấp bổ sung tự động theo phân nhánh</span>
+</div>
+</div>
+<button class="p-1 text-on-surface-variant hover:text-on-surface rounded-md" onclick="closeAddDeptModal()">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex flex-col gap-1">
+<label class="font-caption-medium text-caption-small text-on-surface">Tên Đơn vị / Phòng ban *</label>
+<input class="h-9 px-3 rounded-lg bg-surface-container-low font-body-regular text-body-regular text-on-surface focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(53,37,205,0.2)]" placeholder="Ví dụ: Phòng Quản trị Dữ liệu & AI" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="flex flex-col gap-1">
+<label class="font-caption-medium text-caption-small text-on-surface">Mã Code (Định danh) *</label>
+<input class="h-9 px-3 rounded-lg bg-surface-container-low font-code-mono text-code-mono text-on-surface uppercase focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(53,37,205,0.2)]" placeholder="AI-DATA-DEPT" type="text"/>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-caption-medium text-caption-small text-on-surface">Phân cấp (Depth Tier)</label>
+<select class="h-9 px-3 rounded-lg bg-surface-container-low font-body-regular text-body-regular text-on-surface focus:outline-none">
+<option>Cấp 3 • Phòng ban (Department)</option>
+<option>Cấp 4 • Tổ / Nhóm (Team)</option>
+<option>Cấp 5 • Đơn vị chức năng</option>
+</select>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-caption-medium text-caption-small text-on-surface">Đơn vị cha (Parent Node) *</label>
+<select class="h-9 px-3 rounded-lg bg-surface-container-low font-body-regular text-body-regular text-on-surface focus:outline-none">
+<option>Khối Công nghệ & Sản phẩm (TECH-DIV)</option>
+<option>Phòng Backend Platform (BE-DEPT)</option>
+<option>Khối Vận hành Doanh nghiệp (OPS-DIV)</option>
+</select>
+</div>
+</div>
+<div class="flex items-center justify-end gap-space-sm pt-space-xs">
+<button class="h-9 px-4 rounded-xl bg-surface-container text-on-surface font-body-medium text-body-medium hover:bg-surface-container-high transition-colors" onclick="closeAddDeptModal()">
+          Hủy
+        </button>
+<button class="h-9 px-4 rounded-xl bg-primary text-on-primary font-body-medium text-body-medium hover:bg-primary-hover shadow-md transition-all flex items-center gap-1.5" onclick="simulateSaveDept(this)">
+<span class="material-symbols-outlined text-[18px]">save</span>
+<span>Tạo & Đồng bộ cây</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Offline State Banner Reconnect Simulation
+  function simulateReconnect() {
+    const spinner = document.getElementById('retry-spinner');
+    const btn = document.getElementById('retry-btn');
+    const banner = document.getElementById('runtime-offline-banner');
+    
+    spinner.classList.remove('hidden');
+    btn.classList.add('opacity-70');
+
+    setTimeout(() => {
+      spinner.classList.add('hidden');
+      btn.classList.remove('opacity-70');
+      // Success feedback animation
+      banner.classList.remove('bg-status-warning');
+      banner.classList.add('bg-status-active');
+      banner.innerHTML = `
+        <div class="flex items-center gap-space-sm w-full justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[20px] text-white">cloud_done</span>
+            <span class="font-body-medium text-body-medium font-semibold text-white">Đã khôi phục kết nối thành công! Đồng bộ dữ liệu hoàn tất.</span>
+          </div>
+          <button onclick="dismissOfflineBanner()" class="text-white hover:bg-white/20 p-1 rounded-md">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      `;
+      setTimeout(() => {
+        dismissOfflineBanner();
+      }, 3000);
+    }, 1200);
+  }
+
+  function dismissOfflineBanner() {
+    const banner = document.getElementById('runtime-offline-banner');
+    if (banner) {
+      banner.style.opacity = '0';
+      banner.style.transform = 'translateY(-10px)';
+      setTimeout(() => banner.remove(), 250);
+    }
+  }
+
+  // Hook App Shell Logout Trigger if available
+  document.addEventListener('DOMContentLoaded', () => {
+    const logoutBtnInSidebar = document.querySelector('aside button[aria-label="Đăng xuất"]');
+    if (logoutBtnInSidebar) {
+      logoutBtnInSidebar.addEventListener('click', (e) => {
+        e.preventDefault();
+        openLogoutModal();
+      });
+    }
+  });
+
+  // Logout Modal Triggers
+  function openLogoutModal() {
+    const backdrop = document.getElementById('logout-modal-backdrop');
+    const card = document.getElementById('logout-modal-card');
+    backdrop.classList.remove('pointer-events-none', 'opacity-0');
+    backdrop.classList.add('opacity-100');
+    card.classList.remove('scale-95');
+    card.classList.add('scale-100');
+  }
+
+  function closeLogoutModal() {
+    const backdrop = document.getElementById('logout-modal-backdrop');
+    const card = document.getElementById('logout-modal-card');
+    backdrop.classList.remove('opacity-100');
+    backdrop.classList.add('opacity-0', 'pointer-events-none');
+    card.classList.remove('scale-100');
+    card.classList.add('scale-95');
+  }
+
+  function confirmLogoutAction() {
+    const btn = event.currentTarget;
+    btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">sync</span> Đang thoát...`;
+    btn.disabled = true;
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
+  }
+
+  // Add Department Modal Triggers
+  function openAddDeptModal() {
+    const backdrop = document.getElementById('add-dept-backdrop');
+    const card = document.getElementById('add-dept-card');
+    backdrop.classList.remove('pointer-events-none', 'opacity-0');
+    backdrop.classList.add('opacity-100');
+    card.classList.remove('scale-95');
+    card.classList.add('scale-100');
+  }
+
+  function closeAddDeptModal() {
+    const backdrop = document.getElementById('add-dept-backdrop');
+    const card = document.getElementById('add-dept-card');
+    backdrop.classList.remove('opacity-100');
+    backdrop.classList.add('opacity-0', 'pointer-events-none');
+    card.classList.remove('scale-100');
+    card.classList.add('scale-95');
+  }
+
+  function simulateSaveDept(btn) {
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">sync</span> Đang lưu...`;
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      closeAddDeptModal();
+    }, 1000);
+  }
+
+  function triggerExportReport() {
+    alert("Đang trích xuất cấu trúc đồ thị sang định dạng SVG/PDF & Bảng dữ liệu XLSX...");
+  }
+
+  function openAssignManagerModal() {
+    openAddDeptModal();
+  }
+
+  function toggleExpandAll() {
+    alert("Chuyển đổi trạng thái đóng/mở toàn bộ 5 cấp phòng ban.");
+  }
+</script></main></div></body></html>
