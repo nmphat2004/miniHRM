@@ -16,7 +16,7 @@
     "frontend:build": "npm --prefix frontend run build",
     "seed": "npm run backend:seed",
     "test": "npm run backend:test",
-    "dev": "concurrently -k -n \"DOCKER,BACKEND,FRONTEND\" -c \"cyan,blue,magenta\" \"npm run docker:up\" \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "dev": "npm run docker:up && concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,magenta\" \"npm run backend:dev\" \"npm run frontend:dev\"",
     "dev:app": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,magenta\" \"npm run backend:dev\" \"npm run frontend:dev\"",
     "start": "npm run dev"
   },
