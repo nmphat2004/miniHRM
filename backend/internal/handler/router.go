@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 
 	"mini-hrm-backend/internal/auth"
@@ -13,10 +14,11 @@ import (
 )
 
 type contextKey string
+
 const actorContextKey contextKey = "actor_claims"
 
 type Server struct {
-	authSvc  *auth.MockAuthService
+	authSvc  auth.AuthService
 	deptSvc  *service.DepartmentService
 	empSvc   *service.EmployeeService
 	auditSvc *service.AuditService
@@ -25,7 +27,7 @@ type Server struct {
 }
 
 func NewServer(
-	authSvc *auth.MockAuthService,
+	authSvc auth.AuthService,
 	deptSvc *service.DepartmentService,
 	empSvc *service.EmployeeService,
 	auditSvc *service.AuditService,
@@ -47,12 +49,34 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// CORS Headers cho Next.js dev
 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Mock-Role, X-Mock-User, X-Mock-Dept")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
+	}
+	if r.Method == http.MethodPost && !strings.HasPrefix(r.URL.Path, "/api/v1/auth/") && r.Header.Get("Idempotency-Key") == "" {
+		writeError(w, http.StatusBadRequest, "Mọi yêu cầu POST phải gửi Idempotency-Key")
+		return
+	}
+	if r.Method == http.MethodPost && !strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
+		claims, authErr := s.authenticate(r)
+		if authErr != nil {
+			writeError(w, http.StatusUnauthorized, "Chưa đăng nhập")
+			return
+		}
+		idempotencyKey := claims.UserID + ":" + r.Header.Get("Idempotency-Key")
+		r.Header.Set("Idempotency-Key", idempotencyKey)
+		if hit, status, body, err := s.repo.CheckIdempotency(r.Context(), idempotencyKey); err != nil {
+			writeError(w, http.StatusInternalServerError, "Không thể kiểm tra Idempotency-Key")
+			return
+		} else if hit {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(status)
+			_, _ = w.Write(body)
+			return
+		}
 	}
 
 	s.mux.ServeHTTP(w, r)
@@ -60,7 +84,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) authenticate(r *http.Request) (*model.UserClaims, error) {
 	// 1. Mock header cho kiểm thử nhanh
-	if mockRole := r.Header.Get("X-Mock-Role"); mockRole != "" {
+	if mockRole := r.Header.Get("X-Mock-Role"); os.Getenv("ENABLE_MOCK_HEADERS") == "true" && mockRole != "" {
 		claims := &model.UserClaims{
 			UserID:         r.Header.Get("X-Mock-User"),
 			Username:       "Mock User",
@@ -74,16 +98,9 @@ func (s *Server) authenticate(r *http.Request) (*model.UserClaims, error) {
 		return claims, nil
 	}
 
-	// 2. Token từ header Authorization
 	var tokenStr string
-	authHeader := r.Header.Get("Authorization")
-	if strings.HasPrefix(authHeader, "Bearer ") {
-		tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-	} else {
-		// 3. Token từ Cookie
-		if cookie, err := r.Cookie("session_token"); err == nil {
-			tokenStr = cookie.Value
-		}
+	if cookie, err := r.Cookie("session_token"); err == nil {
+		tokenStr = cookie.Value
 	}
 
 	if tokenStr == "" {
@@ -125,14 +142,12 @@ func (s *Server) registerRoutes() {
 			Value:    token,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   false,
-			SameSite: http.SameSiteLaxMode,
+			Secure:   r.TLS != nil || os.Getenv("COOKIE_SECURE") == "true",
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   24 * 60 * 60,
 		})
 
-		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"user":  claims,
-			"token": token,
-		})
+		writeJSON(w, http.StatusOK, map[string]interface{}{"user": claims})
 	})
 
 	// GET /api/v1/auth/me
@@ -152,6 +167,8 @@ func (s *Server) registerRoutes() {
 			Value:    "",
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   r.TLS != nil || os.Getenv("COOKIE_SECURE") == "true",
+			SameSite: http.SameSiteStrictMode,
 			MaxAge:   -1,
 		})
 		writeJSON(w, http.StatusOK, map[string]string{"message": "Đăng xuất thành công"})
@@ -176,28 +193,12 @@ func (s *Server) registerRoutes() {
 			return
 		}
 
-		allDepts, err := s.repo.GetAllDepartments(r.Context())
+		allDepts, err := s.deptSvc.ListDepartmentsWithCounts(r.Context(), claims)
 		if err != nil {
 			s.handleError(w, err)
 			return
 		}
-
-		// Lọc scoping (Ràng buộc 1)
-		var scoped []*model.Department
-		for _, d := range allDepts {
-			if claims.Role == model.RoleAdmin {
-				scoped = append(scoped, d)
-			} else if claims.Role == model.RoleManager {
-				if strings.HasPrefix(d.Path, claims.DepartmentPath) {
-					scoped = append(scoped, d)
-				}
-			} else {
-				if d.ID == claims.DepartmentID {
-					scoped = append(scoped, d)
-				}
-			}
-		}
-		writeJSON(w, http.StatusOK, scoped)
+		writeJSON(w, http.StatusOK, allDepts)
 	})
 
 	// GET /api/v1/departments/{id}
@@ -248,14 +249,19 @@ func (s *Server) registerRoutes() {
 
 		dept, err := s.deptSvc.CreateDepartment(r.Context(), claims, req.Code, req.Name, req.ParentID, idempotencyKey)
 		if err != nil {
+			if idempotencyKey != "" {
+				if hit, status, body, checkErr := s.repo.CheckIdempotency(r.Context(), idempotencyKey); checkErr == nil && hit {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(status)
+					_, _ = w.Write(body)
+					return
+				}
+			}
 			s.handleError(w, err)
 			return
 		}
 
 		respBytes, _ := json.Marshal(map[string]interface{}{"success": true, "data": dept})
-		if idempotencyKey != "" {
-			_ = s.repo.SaveIdempotency(r.Context(), idempotencyKey, http.StatusCreated, respBytes)
-		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
@@ -305,8 +311,11 @@ func (s *Server) registerRoutes() {
 			return
 		}
 
-		err = s.deptSvc.MoveDepartment(r.Context(), claims, id, req.NewParentID)
+		err = s.deptSvc.MoveDepartment(r.Context(), claims, id, req.NewParentID, r.Header.Get("Idempotency-Key"))
 		if err != nil {
+			if s.replayIdempotency(w, r) {
+				return
+			}
 			s.handleError(w, err)
 			return
 		}
@@ -322,8 +331,11 @@ func (s *Server) registerRoutes() {
 		}
 
 		id := r.PathValue("id")
-		err = s.deptSvc.ArchiveDepartment(r.Context(), claims, id)
+		err = s.deptSvc.ArchiveDepartment(r.Context(), claims, id, r.Header.Get("Idempotency-Key"))
 		if err != nil {
+			if s.replayIdempotency(w, r) {
+				return
+			}
 			s.handleError(w, err)
 			return
 		}
@@ -347,8 +359,11 @@ func (s *Server) registerRoutes() {
 			return
 		}
 
-		err = s.deptSvc.AssignManager(r.Context(), claims, id, req.EmployeeID)
+		err = s.deptSvc.AssignManager(r.Context(), claims, id, req.EmployeeID, r.Header.Get("Idempotency-Key"))
 		if err != nil {
+			if s.replayIdempotency(w, r) {
+				return
+			}
 			s.handleError(w, err)
 			return
 		}
@@ -365,8 +380,14 @@ func (s *Server) registerRoutes() {
 
 		deptID := r.URL.Query().Get("departmentId")
 		status := r.URL.Query().Get("status")
+		if status == "ALL" {
+			status = ""
+		} else if status == "" {
+			status = string(model.EmpStatusActive)
+		}
+		search := r.URL.Query().Get("search")
 
-		emps, err := s.empSvc.ListEmployees(r.Context(), claims, deptID, status)
+		emps, err := s.empSvc.ListEmployees(r.Context(), claims, deptID, status, search, r.URL.Query().Get("scope") == "subtree")
 		if err != nil {
 			s.handleError(w, err)
 			return
@@ -389,6 +410,32 @@ func (s *Server) registerRoutes() {
 			return
 		}
 		writeJSON(w, http.StatusOK, emp)
+	})
+
+	// PUT /api/v1/employees/{id} — editable profile fields only; code/email are immutable.
+	s.mux.HandleFunc("PUT /api/v1/employees/{id}", func(w http.ResponseWriter, r *http.Request) {
+		claims, err := s.authenticate(r)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "Chưa đăng nhập")
+			return
+		}
+		var req struct {
+			FullName string  `json:"fullName"`
+			Title    string  `json:"title"`
+			JoinedAt string  `json:"joinedAt"`
+			Version  int     `json:"version"`
+			Avatar   *string `json:"avatar"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "Dữ liệu JSON không hợp lệ")
+			return
+		}
+		employee, err := s.empSvc.UpdateEmployee(r.Context(), claims, r.PathValue("id"), req.FullName, req.Title, req.JoinedAt, req.Version, req.Avatar)
+		if err != nil {
+			s.handleError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, employee)
 	})
 
 	// POST /api/v1/employees
@@ -425,14 +472,19 @@ func (s *Server) registerRoutes() {
 
 		emp, err := s.empSvc.CreateEmployee(r.Context(), claims, req.Code, req.FullName, req.Email, req.DepartmentID, req.Title, req.JoinedAt, idempotencyKey)
 		if err != nil {
+			if idempotencyKey != "" {
+				if hit, status, body, checkErr := s.repo.CheckIdempotency(r.Context(), idempotencyKey); checkErr == nil && hit {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(status)
+					_, _ = w.Write(body)
+					return
+				}
+			}
 			s.handleError(w, err)
 			return
 		}
 
 		respBytes, _ := json.Marshal(map[string]interface{}{"success": true, "data": emp})
-		if idempotencyKey != "" {
-			_ = s.repo.SaveIdempotency(r.Context(), idempotencyKey, http.StatusCreated, respBytes)
-		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
@@ -457,8 +509,11 @@ func (s *Server) registerRoutes() {
 			return
 		}
 
-		err = s.empSvc.TransferEmployee(r.Context(), claims, id, req.NewDepartmentID, req.ConfirmManagerRemoval)
+		err = s.empSvc.TransferEmployee(r.Context(), claims, id, req.NewDepartmentID, req.ConfirmManagerRemoval, r.Header.Get("Idempotency-Key"))
 		if err != nil {
+			if s.replayIdempotency(w, r) {
+				return
+			}
 			s.handleError(w, err)
 			return
 		}
@@ -481,8 +536,11 @@ func (s *Server) registerRoutes() {
 			// reason optional
 		}
 
-		err = s.empSvc.ResignEmployee(r.Context(), claims, id, req.Reason)
+		err = s.empSvc.ResignEmployee(r.Context(), claims, id, req.Reason, r.Header.Get("Idempotency-Key"))
 		if err != nil {
+			if s.replayIdempotency(w, r) {
+				return
+			}
 			s.handleError(w, err)
 			return
 		}
@@ -507,6 +565,17 @@ func (s *Server) registerRoutes() {
 	})
 }
 
+func (s *Server) replayIdempotency(w http.ResponseWriter, r *http.Request) bool {
+	hit, status, body, err := s.repo.CheckIdempotency(r.Context(), r.Header.Get("Idempotency-Key"))
+	if err != nil || !hit {
+		return false
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+	return true
+}
+
 func (s *Server) handleError(w http.ResponseWriter, err error) {
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Không tìm thấy bản ghi hoặc không có quyền truy cập")
@@ -525,6 +594,8 @@ func (s *Server) handleError(w http.ResponseWriter, err error) {
 		return
 	}
 	if errors.Is(err, service.ErrCycleDetected) ||
+		errors.Is(err, service.ErrInvalidAvatar) ||
+		errors.Is(err, service.ErrMoveTooLarge) ||
 		errors.Is(err, service.ErrMaxDepthExceed) ||
 		errors.Is(err, service.ErrParentArchived) ||
 		errors.Is(err, service.ErrDeptHasActiveNV) ||

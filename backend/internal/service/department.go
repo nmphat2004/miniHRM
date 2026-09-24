@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ var (
 	ErrParentArchived  = errors.New("lỗi BR-PB-07: phòng ban cha đã lưu trữ không được tiếp nhận thêm phòng mới")
 	ErrDeptHasActiveNV = errors.New("lỗi BR-PB-06: không lưu trữ phòng ban còn nhân viên hoặc phòng con ACTIVE")
 	ErrForbidden       = errors.New("bạn không có quyền thực hiện hành động này")
+	ErrMoveTooLarge    = errors.New("cây vượt giới hạn kích thước transaction DynamoDB")
 )
 
 var deptCodeRegex = regexp.MustCompile("^[A-Z0-9_]{2,20}$")
@@ -51,6 +53,15 @@ func (s *DepartmentService) CreateDepartment(ctx context.Context, actor *model.U
 	now := time.Now().UTC()
 
 	var pathStr string
+	siblings, err := s.repo.QueryDepartmentsByParent(ctx, parentID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sibling := range siblings {
+		if strings.EqualFold(strings.TrimSpace(sibling.Name), name) {
+			return nil, fmt.Errorf("tên phòng ban %q đã tồn tại trong cùng phòng cha", name)
+		}
+	}
 	if parentID == "" {
 		pathStr = fmt.Sprintf("/%s/", deptID)
 	} else {
@@ -88,6 +99,7 @@ func (s *DepartmentService) CreateDepartment(ctx context.Context, actor *model.U
 		Action:     "department.created",
 		TargetType: "Department",
 		TargetID:   deptID,
+		TargetName: name,
 		After: map[string]interface{}{
 			"code":     code,
 			"name":     name,
@@ -97,7 +109,7 @@ func (s *DepartmentService) CreateDepartment(ctx context.Context, actor *model.U
 		OccurredAt: now,
 	}
 
-	err := s.repo.PutDepartmentAtomic(ctx, dept, audit, idempotencyKey)
+	err = s.repo.PutDepartmentAtomic(ctx, dept, audit, idempotencyKey)
 	if err != nil {
 		return nil, err
 	}
@@ -107,48 +119,26 @@ func (s *DepartmentService) CreateDepartment(ctx context.Context, actor *model.U
 
 // GetDepartmentByID lấy thông tin phòng ban kèm kiểm tra Scoping (Ràng buộc 1, 2)
 func (s *DepartmentService) GetDepartmentByID(ctx context.Context, actor *model.UserClaims, id string) (*model.Department, error) {
-	dept, err := s.repo.GetDepartmentByID(ctx, id)
+	if actor.Role == model.RoleAdmin {
+		return s.repo.GetDepartmentByID(ctx, id)
+	}
+	departments, err := s.ListDepartments(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
-
-	// Data Scoping & 404 security check (Ràng buộc 1 & 2)
-	if actor.Role == model.RoleAdmin {
-		return dept, nil
-	} else if actor.Role == model.RoleManager {
-		if !strings.HasPrefix(dept.Path, actor.DepartmentPath) {
-			return nil, repository.ErrNotFound
-		}
-	} else {
-		if dept.ID != actor.DepartmentID {
-			return nil, repository.ErrNotFound
+	for _, department := range departments {
+		if department.ID == id {
+			return department, nil
 		}
 	}
-
-	return dept, nil
+	return nil, repository.ErrNotFound
 }
 
 // GetDepartmentTree trả về cây phân cấp phòng ban theo phạm vi scoping
 func (s *DepartmentService) GetDepartmentTree(ctx context.Context, actor *model.UserClaims) ([]*model.Department, error) {
-	allDepts, err := s.repo.GetAllDepartments(ctx)
+	scopedDepts, err := s.ListDepartmentsWithCounts(ctx, actor)
 	if err != nil {
 		return nil, err
-	}
-
-	// Lọc theo Data Scoping (Ràng buộc 1)
-	var scopedDepts []*model.Department
-	for _, d := range allDepts {
-		if actor.Role == model.RoleAdmin {
-			scopedDepts = append(scopedDepts, d)
-		} else if actor.Role == model.RoleManager {
-			if strings.HasPrefix(d.Path, actor.DepartmentPath) {
-				scopedDepts = append(scopedDepts, d)
-			}
-		} else {
-			if d.ID == actor.DepartmentID {
-				scopedDepts = append(scopedDepts, d)
-			}
-		}
 	}
 
 	// Xây dựng cây phân cấp (Tree structure)
@@ -170,9 +160,78 @@ func (s *DepartmentService) GetDepartmentTree(ctx context.Context, actor *model.
 	return rootNodes, nil
 }
 
+// ListDepartmentsWithCounts reports all employees (ACTIVE and RESIGNED) in each
+// accessible subtree. Stored employeeCount remains the direct ACTIVE count used
+// by write paths; the returned objects are separate DynamoDB reads.
+func (s *DepartmentService) ListDepartmentsWithCounts(ctx context.Context, actor *model.UserClaims) ([]*model.Department, error) {
+	depts, err := s.ListDepartments(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	if actor.Role == model.RoleEmployee {
+		if len(depts) == 0 {
+			return depts, nil
+		}
+		depts[0].DirectEmployeeCount = 1
+		depts[0].EmployeeCount = 1
+		return depts, nil
+	}
+	for _, dept := range depts {
+		employees, err := s.repo.QueryEmployeesByDepartment(ctx, dept.ID)
+		if err != nil {
+			return nil, err
+		}
+		dept.DirectEmployeeCount = len(employees)
+	}
+	accumulateSubtreeCounts(depts)
+	return depts, nil
+}
+
+func accumulateSubtreeCounts(depts []*model.Department) {
+	byID := make(map[string]*model.Department, len(depts))
+	for _, dept := range depts {
+		dept.EmployeeCount = dept.DirectEmployeeCount
+		byID[dept.ID] = dept
+	}
+	ordered := append([]*model.Department(nil), depts...)
+	sort.Slice(ordered, func(i, j int) bool { return len(ordered[i].Path) > len(ordered[j].Path) })
+	for _, dept := range ordered {
+		if parent := byID[dept.ParentID]; parent != nil {
+			parent.EmployeeCount += dept.EmployeeCount
+		}
+	}
+}
+
+// ListDepartments retrieves only departments inside the caller's current scope.
+func (s *DepartmentService) ListDepartments(ctx context.Context, actor *model.UserClaims) ([]*model.Department, error) {
+	if actor.Role == model.RoleAdmin {
+		return s.repo.ListDepartmentTree(ctx, "")
+	}
+	deptID := actor.DepartmentID
+	if actor.Role == model.RoleManager || actor.Role == model.RoleEmployee {
+		currentEmployee, lookupErr := s.repo.GetEmployeeByID(ctx, actor.UserID)
+		if lookupErr != nil {
+			return nil, repository.ErrNotFound
+		}
+		deptID = currentEmployee.DepartmentID
+	}
+	dept, err := s.repo.GetDepartmentByID(ctx, deptID)
+	if err != nil {
+		return nil, repository.ErrNotFound
+	}
+	if actor.Role != model.RoleManager {
+		return []*model.Department{dept}, nil
+	}
+	children, err := s.repo.ListDepartmentTree(ctx, dept.ID)
+	if err != nil {
+		return nil, err
+	}
+	return append([]*model.Department{dept}, children...), nil
+}
+
 // UpdateDepartment cập nhật tên phòng ban kèm OCC Version check (Ràng buộc 5)
 func (s *DepartmentService) UpdateDepartment(ctx context.Context, actor *model.UserClaims, id, name string, version int) (*model.Department, error) {
-	if actor.Role != model.RoleAdmin {
+	if actor.Role != model.RoleAdmin && actor.Role != model.RoleManager {
 		return nil, ErrForbidden
 	}
 
@@ -181,13 +240,50 @@ func (s *DepartmentService) UpdateDepartment(ctx context.Context, actor *model.U
 		return nil, errors.New("tên phòng ban phải từ 2 đến 100 ký tự (BR-PB-01)")
 	}
 
-	dept, err := s.repo.GetDepartmentByID(ctx, id)
+	var dept *model.Department
+	var err error
+	if actor.Role == model.RoleAdmin {
+		dept, err = s.repo.GetDepartmentByID(ctx, id)
+	} else {
+		departments, listErr := s.ListDepartments(ctx, actor)
+		if listErr != nil {
+			return nil, listErr
+		}
+		for _, candidate := range departments {
+			if candidate.ID == id {
+				dept = candidate
+				break
+			}
+		}
+		if dept == nil {
+			return nil, repository.ErrNotFound
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	if dept.Version != version {
 		return nil, repository.ErrVersionConflict
+	}
+	if actor.Role == model.RoleManager {
+		manager, managerErr := s.repo.GetEmployeeByID(ctx, actor.UserID)
+		if managerErr != nil {
+			return nil, ErrForbidden
+		}
+		managerDept, scopeErr := s.repo.GetDepartmentByID(ctx, manager.DepartmentID)
+		if scopeErr != nil || !strings.HasPrefix(dept.Path, managerDept.Path) {
+			return nil, ErrForbidden
+		}
+	}
+	siblings, err := s.repo.QueryDepartmentsByParent(ctx, dept.ParentID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sibling := range siblings {
+		if sibling.ID != dept.ID && strings.EqualFold(strings.TrimSpace(sibling.Name), name) {
+			return nil, fmt.Errorf("tên phòng ban %q đã tồn tại trong cùng phòng cha", name)
+		}
 	}
 
 	audit := &model.AuditLog{
@@ -197,13 +293,14 @@ func (s *DepartmentService) UpdateDepartment(ctx context.Context, actor *model.U
 		Action:     "department.updated",
 		TargetType: "Department",
 		TargetID:   id,
+		TargetName: name,
 		Before:     map[string]interface{}{"name": dept.Name, "version": dept.Version},
 		After:      map[string]interface{}{"name": name, "version": dept.Version + 1},
 		OccurredAt: time.Now().UTC(),
 	}
 
 	dept.Name = name
-	err = s.repo.UpdateDepartmentAtomic(ctx, dept, audit)
+	err = s.repo.UpdateDepartmentAtomic(ctx, dept, audit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +308,7 @@ func (s *DepartmentService) UpdateDepartment(ctx context.Context, actor *model.U
 }
 
 // MoveDepartment thực thi UC-02 (Di chuyển phòng ban)
-func (s *DepartmentService) MoveDepartment(ctx context.Context, actor *model.UserClaims, deptID, newParentID string) error {
+func (s *DepartmentService) MoveDepartment(ctx context.Context, actor *model.UserClaims, deptID, newParentID, idempotencyKey string) error {
 	if actor.Role != model.RoleAdmin {
 		return ErrForbidden
 	}
@@ -227,6 +324,15 @@ func (s *DepartmentService) MoveDepartment(ctx context.Context, actor *model.Use
 
 	if dept.Status != model.DeptStatusActive {
 		return errors.New("không thể di chuyển phòng ban không ở trạng thái ACTIVE")
+	}
+	siblings, err := s.repo.QueryDepartmentsByParent(ctx, newParentID)
+	if err != nil {
+		return err
+	}
+	for _, sibling := range siblings {
+		if sibling.ID != deptID && strings.EqualFold(strings.TrimSpace(sibling.Name), strings.TrimSpace(dept.Name)) {
+			return fmt.Errorf("không thể di chuyển: tên %q đã có trong phòng cha đích", dept.Name)
+		}
 	}
 
 	var newParentPath string
@@ -254,22 +360,20 @@ func (s *DepartmentService) MoveDepartment(ctx context.Context, actor *model.Use
 	}
 
 	// Lấy tất cả phòng ban và nhân sự để cập nhật cây con (BR-PB-05)
-	allDepts, err := s.repo.GetAllDepartments(ctx)
+	subDepts, err := s.repo.ListDepartmentTree(ctx, deptID)
 	if err != nil {
 		return err
 	}
 
 	oldPath := dept.Path
-	var subDepts []*model.Department
-	for _, d := range allDepts {
-		if d.ID != deptID && strings.HasPrefix(d.Path, oldPath) {
+	for _, d := range subDepts {
+		if strings.HasPrefix(d.Path, oldPath) {
 			subPath := strings.Replace(d.Path, oldPath, newDeptPath, 1)
 			depth := strings.Count(subPath, "/") - 1
 			if depth > 5 {
 				return ErrMaxDepthExceed
 			}
 			d.Path = subPath
-			subDepts = append(subDepts, d)
 		}
 	}
 
@@ -278,17 +382,22 @@ func (s *DepartmentService) MoveDepartment(ctx context.Context, actor *model.Use
 		return ErrMaxDepthExceed
 	}
 
-	allEmps, err := s.repo.GetAllEmployees(ctx)
-	if err != nil {
-		return err
-	}
-
 	var subEmployees []*model.Employee
-	for _, e := range allEmps {
-		if strings.HasPrefix(e.DepartmentPath, oldPath) {
-			e.DepartmentPath = strings.Replace(e.DepartmentPath, oldPath, newDeptPath, 1)
-			subEmployees = append(subEmployees, e)
+	affectedDepts := append([]*model.Department{dept}, subDepts...)
+	for _, affectedDept := range affectedDepts {
+		employees, queryErr := s.repo.QueryEmployeesByDepartment(ctx, affectedDept.ID)
+		if queryErr != nil {
+			return queryErr
 		}
+		for _, e := range employees {
+			if strings.HasPrefix(e.DepartmentPath, oldPath) {
+				e.DepartmentPath = strings.Replace(e.DepartmentPath, oldPath, newDeptPath, 1)
+				subEmployees = append(subEmployees, e)
+			}
+		}
+	}
+	if 1+len(subDepts)+len(subEmployees)+1+1 > 100 {
+		return fmt.Errorf("%w: cần %d thao tác kể cả nhật ký và Idempotency (giới hạn 100); chưa có dữ liệu nào được đổi", ErrMoveTooLarge, 1+len(subDepts)+len(subEmployees)+1+1)
 	}
 
 	audit := &model.AuditLog{
@@ -298,6 +407,7 @@ func (s *DepartmentService) MoveDepartment(ctx context.Context, actor *model.Use
 		Action:     "department.moved",
 		TargetType: "Department",
 		TargetID:   deptID,
+		TargetName: dept.Name,
 		Before:     map[string]interface{}{"parentId": dept.ParentID, "path": oldPath},
 		After:      map[string]interface{}{"parentId": newParentID, "path": newDeptPath},
 		OccurredAt: time.Now().UTC(),
@@ -306,11 +416,11 @@ func (s *DepartmentService) MoveDepartment(ctx context.Context, actor *model.Use
 	dept.ParentID = newParentID
 	dept.Path = newDeptPath
 
-	return s.repo.MoveDepartmentAtomic(ctx, dept, subDepts, subEmployees, audit)
+	return s.repo.MoveDepartmentAtomic(ctx, dept, subDepts, subEmployees, audit, idempotencyKey)
 }
 
 // ArchiveDepartment thực thi lưu trữ phòng ban (BR-PB-06)
-func (s *DepartmentService) ArchiveDepartment(ctx context.Context, actor *model.UserClaims, deptID string) error {
+func (s *DepartmentService) ArchiveDepartment(ctx context.Context, actor *model.UserClaims, deptID, idempotencyKey string) error {
 	if actor.Role != model.RoleAdmin {
 		return ErrForbidden
 	}
@@ -324,20 +434,34 @@ func (s *DepartmentService) ArchiveDepartment(ctx context.Context, actor *model.
 		return errors.New("phòng ban đã được lưu trữ trước đó")
 	}
 
-	// BR-PB-06: Chặn nếu còn nhân viên
-	if dept.EmployeeCount > 0 {
-		return ErrDeptHasActiveNV
+	// Check actual records rather than relying on the denormalized count.
+	employees, queryErr := s.repo.QueryEmployeesByDepartment(ctx, deptID)
+	if queryErr != nil {
+		return queryErr
+	}
+	var blockers []string
+	for _, employee := range employees {
+		if employee.Status == model.EmpStatusActive {
+			blockers = append(blockers, employee.FullName)
+		}
+	}
+	if len(blockers) > 0 {
+		return fmt.Errorf("không thể lưu trữ: còn nhân viên ACTIVE: %s", strings.Join(blockers, ", "))
 	}
 
 	// BR-PB-06: Chặn nếu còn phòng ban con ACTIVE
-	allDepts, err := s.repo.GetAllDepartments(ctx)
+	children, err := s.repo.QueryDepartmentsByParent(ctx, deptID)
 	if err != nil {
 		return err
 	}
-	for _, d := range allDepts {
-		if d.ParentID == deptID && d.Status == model.DeptStatusActive {
-			return ErrDeptHasActiveNV
+	var activeChildren []string
+	for _, d := range children {
+		if d.Status == model.DeptStatusActive {
+			activeChildren = append(activeChildren, d.Name)
 		}
+	}
+	if len(activeChildren) > 0 {
+		return fmt.Errorf("không thể lưu trữ: còn phòng ban con ACTIVE: %s", strings.Join(activeChildren, ", "))
 	}
 
 	audit := &model.AuditLog{
@@ -347,15 +471,16 @@ func (s *DepartmentService) ArchiveDepartment(ctx context.Context, actor *model.
 		Action:     "department.archived",
 		TargetType: "Department",
 		TargetID:   deptID,
+		TargetName: dept.Name,
 		After:      map[string]interface{}{"status": model.DeptStatusArchived},
 		OccurredAt: time.Now().UTC(),
 	}
 
-	return s.repo.ArchiveDepartmentAtomic(ctx, dept, audit)
+	return s.repo.ArchiveDepartmentAtomic(ctx, dept, audit, idempotencyKey)
 }
 
 // AssignManager bổ nhiệm Trưởng phòng (BR-PB-08)
-func (s *DepartmentService) AssignManager(ctx context.Context, actor *model.UserClaims, deptID, empID string) error {
+func (s *DepartmentService) AssignManager(ctx context.Context, actor *model.UserClaims, deptID, empID, idempotencyKey string) error {
 	if actor.Role != model.RoleAdmin {
 		return ErrForbidden
 	}
@@ -373,6 +498,12 @@ func (s *DepartmentService) AssignManager(ctx context.Context, actor *model.User
 	if emp.Status != model.EmpStatusActive {
 		return errors.New("chỉ có thể bổ nhiệm nhân viên đang làm việc (ACTIVE)")
 	}
+	if dept.Status != model.DeptStatusActive {
+		return errors.New("không thể bổ nhiệm trưởng phòng cho phòng ban không ACTIVE")
+	}
+	if !strings.HasPrefix(emp.DepartmentPath, dept.Path) {
+		return errors.New("trưởng phòng phải thuộc chính phòng ban hoặc cây con của phòng đó (BR-PB-08)")
+	}
 
 	audit := &model.AuditLog{
 		ID:         uuid.New().String(),
@@ -381,6 +512,7 @@ func (s *DepartmentService) AssignManager(ctx context.Context, actor *model.User
 		Action:     "department.manager_assigned",
 		TargetType: "Department",
 		TargetID:   deptID,
+		TargetName: dept.Name,
 		Before:     map[string]interface{}{"managerId": dept.ManagerID, "managerName": dept.ManagerName},
 		After:      map[string]interface{}{"managerId": emp.ID, "managerName": emp.FullName},
 		OccurredAt: time.Now().UTC(),
@@ -388,5 +520,5 @@ func (s *DepartmentService) AssignManager(ctx context.Context, actor *model.User
 
 	dept.ManagerID = emp.ID
 	dept.ManagerName = emp.FullName
-	return s.repo.UpdateDepartmentAtomic(ctx, dept, audit)
+	return s.repo.UpdateDepartmentAtomic(ctx, dept, audit, idempotencyKey)
 }

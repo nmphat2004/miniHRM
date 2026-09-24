@@ -50,8 +50,8 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "Inter", "sans-serif"],
-        heading: ["Plus Jakarta Sans", "sans-serif"],
+        sans: ["Be Vietnam Pro", "sans-serif"],
+        heading: ["Be Vietnam Pro", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
     },

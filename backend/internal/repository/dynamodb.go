@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -92,6 +94,10 @@ func (r *DynamoRepository) EnsureTable(ctx context.Context) error {
 	if err != nil && !strings.Contains(err.Error(), "ResourceInUseException") {
 		return err
 	}
+	_, _ = r.client.UpdateTimeToLive(ctx, &dynamodb.UpdateTimeToLiveInput{
+		TableName:               aws.String(r.tableName),
+		TimeToLiveSpecification: &types.TimeToLiveSpecification{AttributeName: aws.String("expiresAt"), Enabled: aws.Bool(true)},
+	})
 	return nil
 }
 
@@ -112,6 +118,13 @@ func (r *DynamoRepository) CheckIdempotency(ctx context.Context, key string) (bo
 	if len(out.Item) == 0 {
 		return false, 0, nil, nil
 	}
+	if expiry, ok := out.Item["expiresAt"].(*types.AttributeValueMemberN); ok {
+		var expires int64
+		_, _ = fmt.Sscan(expiry.Value, &expires)
+		if expires > 0 && expires <= time.Now().Unix() {
+			return false, 0, nil, nil
+		}
+	}
 
 	statusCode := 200
 	if sc, ok := out.Item["statusCode"].(*types.AttributeValueMemberN); ok {
@@ -127,23 +140,6 @@ func (r *DynamoRepository) CheckIdempotency(ctx context.Context, key string) (bo
 	}
 
 	return true, statusCode, respBody, nil
-}
-
-func (r *DynamoRepository) SaveIdempotency(ctx context.Context, key string, statusCode int, responseBody []byte) error {
-	if key == "" {
-		return nil
-	}
-	_, err := r.client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(r.tableName),
-		Item: map[string]types.AttributeValue{
-			"PK":         &types.AttributeValueMemberS{Value: fmt.Sprintf("IDEMPOTENCY#%s", key)},
-			"SK":         &types.AttributeValueMemberS{Value: "METADATA"},
-			"statusCode": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", statusCode)},
-			"response":   &types.AttributeValueMemberS{Value: string(responseBody)},
-			"createdAt":  &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
-		},
-	})
-	return err
 }
 
 func (r *DynamoRepository) PutDepartmentAtomic(ctx context.Context, dept *model.Department, audit *model.AuditLog, idempotencyKey string) error {
@@ -200,6 +196,10 @@ func (r *DynamoRepository) PutDepartmentAtomic(ctx context.Context, dept *model.
 			},
 		},
 	}
+	if idempotencyKey != "" {
+		response, _ := json.Marshal(map[string]interface{}{"success": true, "data": dept})
+		actions = append(actions, idempotencyPut(r.tableName, idempotencyKey, http.StatusCreated, response))
+	}
 
 	_, err = r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
 		TransactItems: actions,
@@ -237,24 +237,9 @@ func (r *DynamoRepository) GetDepartmentByID(ctx context.Context, id string) (*m
 }
 
 func (r *DynamoRepository) GetAllDepartments(ctx context.Context) ([]*model.Department, error) {
-	out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("begins_with(PK, :prefix) AND SK = :sk"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":prefix": &types.AttributeValueMemberS{Value: "DEPT#"},
-			":sk":     &types.AttributeValueMemberS{Value: "METADATA"},
-		},
-	})
+	depts, err := r.ListDepartmentTree(ctx, "")
 	if err != nil {
 		return nil, err
-	}
-
-	var depts []*model.Department
-	for _, it := range out.Items {
-		var d model.Department
-		if err := attributevalue.UnmarshalMap(it, &d); err == nil && d.ID != "" {
-			depts = append(depts, &d)
-		}
 	}
 
 	sort.Slice(depts, func(i, j int) bool {
@@ -264,7 +249,96 @@ func (r *DynamoRepository) GetAllDepartments(ctx context.Context) ([]*model.Depa
 	return depts, nil
 }
 
-func (r *DynamoRepository) UpdateDepartmentAtomic(ctx context.Context, dept *model.Department, audit *model.AuditLog) error {
+// ListDepartmentTree walks from a root or a scoped department using the parent GSI.
+// Each read is constrained in DynamoDB; it never scans unrelated departments.
+func (r *DynamoRepository) ListDepartmentTree(ctx context.Context, rootID string) ([]*model.Department, error) {
+	var result []*model.Department
+	queue := []string{rootID}
+	seen := map[string]bool{}
+	for len(queue) > 0 {
+		parentID := queue[0]
+		queue = queue[1:]
+		items, err := r.QueryDepartmentsByParent(ctx, parentID)
+		if err != nil {
+			return nil, err
+		}
+		for _, dept := range items {
+			if seen[dept.ID] {
+				continue
+			}
+			seen[dept.ID] = true
+			result = append(result, dept)
+			queue = append(queue, dept.ID)
+		}
+	}
+	return result, nil
+}
+
+func (r *DynamoRepository) QueryDepartmentsByParent(ctx context.Context, parentID string) ([]*model.Department, error) {
+	parent := parentID
+	if parent == "" {
+		parent = "ROOT"
+	}
+	var items []map[string]types.AttributeValue
+	var start map[string]types.AttributeValue
+	for {
+		out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName: aws.String(r.tableName), IndexName: aws.String("GSI1"),
+			KeyConditionExpression:    aws.String("GSI1PK = :parent"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{":parent": &types.AttributeValueMemberS{Value: "DEPT_PARENT#" + parent}},
+			ExclusiveStartKey:         start,
+		})
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, out.Items...)
+		if len(out.LastEvaluatedKey) == 0 {
+			break
+		}
+		start = out.LastEvaluatedKey
+	}
+	var departments []*model.Department
+	for _, item := range items {
+		var dept model.Department
+		if err := attributevalue.UnmarshalMap(item, &dept); err != nil {
+			return nil, err
+		}
+		departments = append(departments, &dept)
+	}
+	return departments, nil
+}
+
+func (r *DynamoRepository) QueryEmployeesByDepartment(ctx context.Context, departmentID string) ([]*model.Employee, error) {
+	var items []map[string]types.AttributeValue
+	var start map[string]types.AttributeValue
+	for {
+		out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName: aws.String(r.tableName), IndexName: aws.String("GSI1"),
+			KeyConditionExpression:    aws.String("GSI1PK = :dept"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{":dept": &types.AttributeValueMemberS{Value: "DEPT#" + departmentID}},
+			ExclusiveStartKey:         start,
+		})
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, out.Items...)
+		if len(out.LastEvaluatedKey) == 0 {
+			break
+		}
+		start = out.LastEvaluatedKey
+	}
+	var employees []*model.Employee
+	for _, item := range items {
+		var employee model.Employee
+		if err := attributevalue.UnmarshalMap(item, &employee); err != nil {
+			return nil, err
+		}
+		employees = append(employees, &employee)
+	}
+	return employees, nil
+}
+
+func (r *DynamoRepository) UpdateDepartmentAtomic(ctx context.Context, dept *model.Department, audit *model.AuditLog, idempotencyKey string) error {
 	prevVersion := dept.Version
 	dept.Version++
 	dept.UpdatedAt = time.Now().UTC()
@@ -310,6 +384,9 @@ func (r *DynamoRepository) UpdateDepartmentAtomic(ctx context.Context, dept *mod
 			},
 		},
 	}
+	if idempotencyKey != "" {
+		actions = append(actions, idempotencyMessagePut(r.tableName, idempotencyKey, "Thao tác thành công"))
+	}
 
 	_, err = r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: actions})
 	if err != nil {
@@ -321,13 +398,17 @@ func (r *DynamoRepository) UpdateDepartmentAtomic(ctx context.Context, dept *mod
 	return nil
 }
 
-func (r *DynamoRepository) MoveDepartmentAtomic(ctx context.Context, dept *model.Department, subDepts []*model.Department, subEmployees []*model.Employee, audit *model.AuditLog) error {
+func (r *DynamoRepository) MoveDepartmentAtomic(ctx context.Context, dept *model.Department, subDepts []*model.Department, subEmployees []*model.Employee, audit *model.AuditLog, idempotencyKey string) error {
 	prevVersion := dept.Version
 	dept.Version++
 	dept.UpdatedAt = time.Now().UTC()
 
 	auditPK := fmt.Sprintf("AUDIT#%s", dept.ID)
 	auditSK := fmt.Sprintf("LOG#%s#%s", audit.OccurredAt.Format(time.RFC3339Nano), audit.ID)
+	parentGSI := dept.ParentID
+	if parentGSI == "" {
+		parentGSI = "ROOT"
+	}
 
 	var actions []types.TransactWriteItem
 
@@ -348,12 +429,15 @@ func (r *DynamoRepository) MoveDepartmentAtomic(ctx context.Context, dept *model
 				":path":   &types.AttributeValueMemberS{Value: dept.Path},
 				":newVer": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", dept.Version)},
 				":oldVer": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", prevVersion)},
-				":gpk":    &types.AttributeValueMemberS{Value: fmt.Sprintf("DEPT_PARENT#%s", dept.ParentID)},
+				":gpk":    &types.AttributeValueMemberS{Value: fmt.Sprintf("DEPT_PARENT#%s", parentGSI)},
 				":gsk":    &types.AttributeValueMemberS{Value: fmt.Sprintf("PATH#%s", dept.Path)},
 				":uAt":    &types.AttributeValueMemberS{Value: dept.UpdatedAt.Format(time.RFC3339)},
 			},
 		},
 	})
+	if idempotencyKey != "" {
+		actions = append(actions, idempotencyMessagePut(r.tableName, idempotencyKey, "Di chuyển phòng ban thành công"))
+	}
 
 	for _, sd := range subDepts {
 		actions = append(actions, types.TransactWriteItem{
@@ -416,7 +500,7 @@ func (r *DynamoRepository) MoveDepartmentAtomic(ctx context.Context, dept *model
 	return nil
 }
 
-func (r *DynamoRepository) ArchiveDepartmentAtomic(ctx context.Context, dept *model.Department, audit *model.AuditLog) error {
+func (r *DynamoRepository) ArchiveDepartmentAtomic(ctx context.Context, dept *model.Department, audit *model.AuditLog, idempotencyKey string) error {
 	prevVersion := dept.Version
 	dept.Version++
 	dept.Status = model.DeptStatusArchived
@@ -445,11 +529,11 @@ func (r *DynamoRepository) ArchiveDepartmentAtomic(ctx context.Context, dept *mo
 					"#s": "status",
 				},
 				ExpressionAttributeValues: map[string]types.AttributeValue{
-					":st":      &types.AttributeValueMemberS{Value: string(model.DeptStatusArchived)},
-					":active":  &types.AttributeValueMemberS{Value: string(model.DeptStatusActive)},
-					":newVer":  &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", dept.Version)},
-					":oldVer":  &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", prevVersion)},
-					":uAt":     &types.AttributeValueMemberS{Value: dept.UpdatedAt.Format(time.RFC3339)},
+					":st":     &types.AttributeValueMemberS{Value: string(model.DeptStatusArchived)},
+					":active": &types.AttributeValueMemberS{Value: string(model.DeptStatusActive)},
+					":newVer": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", dept.Version)},
+					":oldVer": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", prevVersion)},
+					":uAt":    &types.AttributeValueMemberS{Value: dept.UpdatedAt.Format(time.RFC3339)},
 				},
 			},
 		},
@@ -459,6 +543,9 @@ func (r *DynamoRepository) ArchiveDepartmentAtomic(ctx context.Context, dept *mo
 				Item:      auditItem,
 			},
 		},
+	}
+	if idempotencyKey != "" {
+		actions = append(actions, idempotencyMessagePut(r.tableName, idempotencyKey, "Lưu trữ phòng ban thành công"))
 	}
 
 	_, err := r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: actions})
@@ -528,10 +615,8 @@ func (r *DynamoRepository) PutEmployeeAtomic(ctx context.Context, emp *model.Emp
 					"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("DEPT#%s", emp.DepartmentID)},
 					"SK": &types.AttributeValueMemberS{Value: "METADATA"},
 				},
-				UpdateExpression: aws.String("ADD employeeCount :inc"),
-				ExpressionAttributeValues: map[string]types.AttributeValue{
-					":inc": &types.AttributeValueMemberN{Value: "1"},
-				},
+				UpdateExpression:          aws.String("ADD employeeCount :inc"),
+				ExpressionAttributeValues: map[string]types.AttributeValue{":inc": &types.AttributeValueMemberN{Value: "1"}},
 			},
 		},
 		{
@@ -540,6 +625,13 @@ func (r *DynamoRepository) PutEmployeeAtomic(ctx context.Context, emp *model.Emp
 				Item:      auditItem,
 			},
 		},
+	}
+	if emp.Status == model.EmpStatusResigned {
+		actions = append(actions[:3], actions[4:]...)
+	}
+	if idempotencyKey != "" {
+		response, _ := json.Marshal(map[string]interface{}{"success": true, "data": emp})
+		actions = append(actions, idempotencyPut(r.tableName, idempotencyKey, http.StatusCreated, response))
 	}
 
 	_, err = r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: actions})
@@ -550,6 +642,26 @@ func (r *DynamoRepository) PutEmployeeAtomic(ctx context.Context, emp *model.Emp
 		return err
 	}
 	return nil
+}
+
+func idempotencyPut(table, key string, status int, response []byte) types.TransactWriteItem {
+	return types.TransactWriteItem{Put: &types.Put{
+		TableName: aws.String(table),
+		Item: map[string]types.AttributeValue{
+			"PK":         &types.AttributeValueMemberS{Value: "IDEMPOTENCY#" + key},
+			"SK":         &types.AttributeValueMemberS{Value: "METADATA"},
+			"statusCode": &types.AttributeValueMemberN{Value: fmt.Sprint(status)},
+			"response":   &types.AttributeValueMemberS{Value: string(response)},
+			"expiresAt":  &types.AttributeValueMemberN{Value: fmt.Sprint(time.Now().Add(24 * time.Hour).Unix())},
+		},
+		ConditionExpression:       aws.String("attribute_not_exists(PK) OR expiresAt < :now"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{":now": &types.AttributeValueMemberN{Value: fmt.Sprint(time.Now().Unix())}},
+	}}
+}
+
+func idempotencyMessagePut(table, key, message string) types.TransactWriteItem {
+	response, _ := json.Marshal(map[string]interface{}{"success": true, "data": map[string]string{"message": message}})
+	return idempotencyPut(table, key, http.StatusOK, response)
 }
 
 func (r *DynamoRepository) GetEmployeeByID(ctx context.Context, id string) (*model.Employee, error) {
@@ -575,40 +687,64 @@ func (r *DynamoRepository) GetEmployeeByID(ctx context.Context, id string) (*mod
 	return &emp, nil
 }
 
-func (r *DynamoRepository) GetAllEmployees(ctx context.Context) ([]*model.Employee, error) {
-	out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("begins_with(PK, :prefix) AND SK = :sk"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":prefix": &types.AttributeValueMemberS{Value: "EMP#"},
-			":sk":     &types.AttributeValueMemberS{Value: "METADATA"},
-		},
-	})
+func (r *DynamoRepository) UpdateEmployeeAtomic(ctx context.Context, employee *model.Employee, audit *model.AuditLog, avatarChanged bool) error {
+	oldVersion := employee.Version
+	employee.Version++
+	employee.UpdatedAt = time.Now().UTC()
+	item, err := attributevalue.MarshalMap(audit)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	var emps []*model.Employee
-	for _, it := range out.Items {
-		var e model.Employee
-		if err := attributevalue.UnmarshalMap(it, &e); err == nil && e.ID != "" {
-			emps = append(emps, &e)
+	item["PK"] = &types.AttributeValueMemberS{Value: "AUDIT#" + employee.ID}
+	item["SK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("LOG#%s#%s", audit.OccurredAt.Format(time.RFC3339Nano), audit.ID)}
+	item["GSI1PK"] = &types.AttributeValueMemberS{Value: "AUDIT_ALL"}
+	item["GSI1SK"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("LOG#%s#%s", audit.OccurredAt.Format(time.RFC3339Nano), audit.ID)}
+	updateExpression := "SET fullName = :name, title = :title, joinedAt = :joined, GSI1SK = :gsk, version = :next, updatedAt = :updated"
+	values := map[string]types.AttributeValue{
+		":name": &types.AttributeValueMemberS{Value: employee.FullName}, ":title": &types.AttributeValueMemberS{Value: employee.Title},
+		":joined": &types.AttributeValueMemberS{Value: employee.JoinedAt}, ":gsk": &types.AttributeValueMemberS{Value: fmt.Sprintf("STATUS_JOINED#%s#%s", employee.Status, employee.JoinedAt)},
+		":old": &types.AttributeValueMemberN{Value: fmt.Sprint(oldVersion)}, ":next": &types.AttributeValueMemberN{Value: fmt.Sprint(employee.Version)}, ":updated": &types.AttributeValueMemberS{Value: employee.UpdatedAt.Format(time.RFC3339)},
+	}
+	if avatarChanged {
+		if employee.Avatar == "" {
+			updateExpression += " REMOVE avatar"
+		} else {
+			updateExpression += ", avatar = :avatar"
+			values[":avatar"] = &types.AttributeValueMemberS{Value: employee.Avatar}
 		}
 	}
-
-	sort.Slice(emps, func(i, j int) bool {
-		return emps[i].JoinedAt > emps[j].JoinedAt
-	})
-	return emps, nil
+	_, err = r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: []types.TransactWriteItem{
+		{Update: &types.Update{
+			TableName:                 aws.String(r.tableName),
+			Key:                       map[string]types.AttributeValue{"PK": &types.AttributeValueMemberS{Value: "EMP#" + employee.ID}, "SK": &types.AttributeValueMemberS{Value: "METADATA"}},
+			UpdateExpression:          aws.String(updateExpression),
+			ConditionExpression:       aws.String("version = :old"),
+			ExpressionAttributeValues: values,
+		}},
+		{Put: &types.Put{TableName: aws.String(r.tableName), Item: item}},
+	}})
+	if err != nil {
+		if strings.Contains(err.Error(), "ConditionalCheckFailed") || strings.Contains(err.Error(), "TransactionCanceledException") {
+			return ErrVersionConflict
+		}
+		return err
+	}
+	return nil
 }
 
-func (r *DynamoRepository) TransferEmployeeAtomic(ctx context.Context, emp *model.Employee, oldDeptID string, clearOldDeptManager bool, audit *model.AuditLog) error {
+func (r *DynamoRepository) TransferEmployeeAtomic(ctx context.Context, emp *model.Employee, oldDeptID string, clearOldDeptManager bool, audit *model.AuditLog, idempotencyKey string) error {
 	prevVersion := emp.Version
 	emp.Version++
 	emp.UpdatedAt = time.Now().UTC()
 
 	auditPK := fmt.Sprintf("AUDIT#%s", emp.ID)
 	auditSK := fmt.Sprintf("LOG#%s#%s", audit.OccurredAt.Format(time.RFC3339Nano), audit.ID)
+	oldDepartmentUpdateExpression := "ADD employeeCount :dec"
+	if clearOldDeptManager {
+		// A DynamoDB transaction may touch a given item only once. Combine the
+		// headcount decrement and manager removal into this single department update.
+		oldDepartmentUpdateExpression = "REMOVE managerId, managerName ADD employeeCount :dec"
+	}
 
 	actions := []types.TransactWriteItem{
 		{
@@ -638,7 +774,7 @@ func (r *DynamoRepository) TransferEmployeeAtomic(ctx context.Context, emp *mode
 					"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("DEPT#%s", oldDeptID)},
 					"SK": &types.AttributeValueMemberS{Value: "METADATA"},
 				},
-				UpdateExpression: aws.String("ADD employeeCount :dec"),
+				UpdateExpression: aws.String(oldDepartmentUpdateExpression),
 				ExpressionAttributeValues: map[string]types.AttributeValue{
 					":dec": &types.AttributeValueMemberN{Value: "-1"},
 				},
@@ -659,19 +795,6 @@ func (r *DynamoRepository) TransferEmployeeAtomic(ctx context.Context, emp *mode
 		},
 	}
 
-	if clearOldDeptManager {
-		actions = append(actions, types.TransactWriteItem{
-			Update: &types.Update{
-				TableName: aws.String(r.tableName),
-				Key: map[string]types.AttributeValue{
-					"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("DEPT#%s", oldDeptID)},
-					"SK": &types.AttributeValueMemberS{Value: "METADATA"},
-				},
-				UpdateExpression: aws.String("REMOVE managerId, managerName"),
-			},
-		})
-	}
-
 	auditItem, _ := attributevalue.MarshalMap(audit)
 	auditItem["PK"] = &types.AttributeValueMemberS{Value: auditPK}
 	auditItem["SK"] = &types.AttributeValueMemberS{Value: auditSK}
@@ -684,6 +807,9 @@ func (r *DynamoRepository) TransferEmployeeAtomic(ctx context.Context, emp *mode
 			Item:      auditItem,
 		},
 	})
+	if idempotencyKey != "" {
+		actions = append(actions, idempotencyMessagePut(r.tableName, idempotencyKey, "Chuyển phòng ban cho nhân sự thành công"))
+	}
 
 	_, err := r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: actions})
 	if err != nil {
@@ -695,7 +821,7 @@ func (r *DynamoRepository) TransferEmployeeAtomic(ctx context.Context, emp *mode
 	return nil
 }
 
-func (r *DynamoRepository) ResignEmployeeAtomic(ctx context.Context, emp *model.Employee, audit *model.AuditLog) error {
+func (r *DynamoRepository) ResignEmployeeAtomic(ctx context.Context, emp *model.Employee, audit *model.AuditLog, idempotencyKey string) error {
 	prevVersion := emp.Version
 	emp.Version++
 	emp.Status = model.EmpStatusResigned
@@ -724,14 +850,14 @@ func (r *DynamoRepository) ResignEmployeeAtomic(ctx context.Context, emp *model.
 					"#s": "status",
 				},
 				ExpressionAttributeValues: map[string]types.AttributeValue{
-					":st":      &types.AttributeValueMemberS{Value: string(model.EmpStatusResigned)},
-					":active":  &types.AttributeValueMemberS{Value: string(model.EmpStatusActive)},
-					":rAt":     &types.AttributeValueMemberS{Value: emp.ResignedAt},
-					":rR":      &types.AttributeValueMemberS{Value: emp.ResignReason},
-					":gsk":     &types.AttributeValueMemberS{Value: fmt.Sprintf("STATUS_JOINED#%s#%s", model.EmpStatusResigned, emp.JoinedAt)},
-					":newVer":  &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", emp.Version)},
-					":oldVer":  &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", prevVersion)},
-					":uAt":     &types.AttributeValueMemberS{Value: emp.UpdatedAt.Format(time.RFC3339)},
+					":st":     &types.AttributeValueMemberS{Value: string(model.EmpStatusResigned)},
+					":active": &types.AttributeValueMemberS{Value: string(model.EmpStatusActive)},
+					":rAt":    &types.AttributeValueMemberS{Value: emp.ResignedAt},
+					":rR":     &types.AttributeValueMemberS{Value: emp.ResignReason},
+					":gsk":    &types.AttributeValueMemberS{Value: fmt.Sprintf("STATUS_JOINED#%s#%s", model.EmpStatusResigned, emp.JoinedAt)},
+					":newVer": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", emp.Version)},
+					":oldVer": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", prevVersion)},
+					":uAt":    &types.AttributeValueMemberS{Value: emp.UpdatedAt.Format(time.RFC3339)},
 				},
 			},
 		},
@@ -754,6 +880,9 @@ func (r *DynamoRepository) ResignEmployeeAtomic(ctx context.Context, emp *model.
 				Item:      auditItem,
 			},
 		},
+	}
+	if idempotencyKey != "" {
+		actions = append(actions, idempotencyMessagePut(r.tableName, idempotencyKey, "Cập nhật thôi việc nhân sự thành công"))
 	}
 
 	_, err := r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: actions})

@@ -20,6 +20,7 @@ export interface Department {
   status: 'ACTIVE' | 'ARCHIVED' | 'MOVING';
   version: number;
   employeeCount: number;
+  directEmployeeCount: number;
   createdAt: string;
   updatedAt: string;
   children?: Department[];
@@ -29,6 +30,7 @@ export interface Employee {
   id: string;
   code: string;
   fullName: string;
+  avatar?: string;
   email: string;
   departmentId: string;
   departmentName?: string;
@@ -50,20 +52,16 @@ export interface AuditLog {
   action: string;
   targetType: string;
   targetId: string;
+  targetName?: string;
   before?: Record<string, any>;
   after?: Record<string, any>;
   occurredAt: string;
 }
 
-// Lấy auth token lưu trong localStorage (hoặc cookie)
-export function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('minihrm_token');
-}
-
-export function setAuthToken(token: string, user: UserClaims) {
+// Chỉ lưu thông tin giao diện; token xác thực nằm trong cookie HttpOnly.
+export function setStoredUser(user: UserClaims) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('minihrm_token', token);
+  localStorage.removeItem('minihrm_token');
   localStorage.setItem('minihrm_user', JSON.stringify(user));
 }
 
@@ -80,27 +78,61 @@ export function clearAuth() {
   localStorage.removeItem('minihrm_user');
 }
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+    return "Không tìm thấy dữ liệu hoặc bạn không có quyền truy cập.";
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+const auditActionLabels: Record<string, string> = {
+  "department.created": "Tạo phòng ban",
+  "department.updated": "Cập nhật phòng ban",
+  "department.renamed": "Đổi tên phòng ban",
+  "department.moved": "Di chuyển phòng ban",
+  "department.archived": "Lưu trữ phòng ban",
+  "department.manager_assigned": "Bổ nhiệm trưởng phòng",
+  "employee.created": "Tạo hồ sơ nhân viên",
+  "employee.updated": "Cập nhật hồ sơ nhân viên",
+  "employee.transferred": "Chuyển phòng ban nhân viên",
+  "employee.resigned": "Cho nhân viên nghỉ việc",
+  "employee.avatar_updated": "Cập nhật ảnh đại diện",
+  "employee.avatar_removed": "Xóa ảnh đại diện",
+  "system.seeded": "Khởi tạo dữ liệu mẫu",
+};
+
+export function getAuditActionLabel(action: string): string {
+  return auditActionLabels[action] || "Thay đổi dữ liệu hệ thống";
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
   };
+	if (options.method?.toUpperCase() === 'POST' && !path.startsWith('/auth/') && !headers['Idempotency-Key']) {
+		headers['Idempotency-Key'] = crypto.randomUUID();
+	}
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
+  } catch {
+    throw new ApiError("Mất kết nối tới máy chủ. Vui lòng kiểm tra đường truyền rồi thử lại.", 0);
   }
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
 
   const body = await res.json();
   if (!res.ok || body.success === false) {
     const errorMsg = body?.error?.message || `Lỗi HTTP ${res.status}`;
-    throw new Error(errorMsg);
+    throw new ApiError(errorMsg, res.status);
   }
 
   return body.data as T;
@@ -109,7 +141,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const api = {
   // Auth
   login: async (username: string, password: string) => {
-    return request<{ user: UserClaims; token: string }>('/auth/login', {
+    return request<{ user: UserClaims }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
@@ -155,14 +187,17 @@ export const api = {
   },
 
   // Employees
-  getEmployees: async (departmentId?: string, status?: string) => {
+  getEmployees: async (departmentId?: string, status?: string, search?: string, includeDescendants = false) => {
     const params = new URLSearchParams();
     if (departmentId) params.append('departmentId', departmentId);
     if (status) params.append('status', status);
+    if (search) params.append('search', search);
+    if (departmentId && includeDescendants) params.append('scope', 'subtree');
     const query = params.toString() ? `?${params.toString()}` : '';
     return request<Employee[]>(`/employees${query}`);
   },
   getEmployeeById: async (id: string) => request<Employee>(`/employees/${id}`),
+  updateEmployee: async (id: string, data: { fullName: string; title: string; joinedAt: string; version: number; avatar?: string }) => request<Employee>(`/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   createEmployee: async (data: { code: string; fullName: string; email: string; departmentId: string; title: string; joinedAt: string }, idempotencyKey?: string) => {
     const headers: Record<string, string> = {};
     if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, Mail, AlertCircle, Loader2, ArrowRight } from "lucide-react";
-import { api, setAuthToken } from "@/lib/api";
+import { api, setStoredUser } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function LoginPage() {
         throw new Error("Vui lòng nhập đầy đủ thông tin đăng nhập.");
       }
       const res = await api.login(email, password);
-      setAuthToken(res.token, res.user);
+      setStoredUser(res.user);
       router.push("/departments");
     } catch (err: any) {
       setError(err.message || "Tài khoản hoặc mật khẩu không chính xác.");
@@ -129,6 +129,8 @@ export default function LoginPage() {
           <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-100 dark:border-slate-800/80 text-xs text-slate-500 text-center space-y-1">
             <div>Admin: <strong>admin@minihrm.local</strong> / <strong>Admin@123</strong></div>
             <div>Manager: <strong>hung.nv@minihrm.local</strong> / <strong>Manager@123</strong></div>
+            <div>Manager nhánh Kinh doanh: <strong>mai.lt@minihrm.local</strong> / <strong>Manager@123</strong></div>
+            <div>Nhân viên: <strong>tuan.hm@minihrm.local</strong> / <strong>User@123</strong></div>
           </div>
         </div>
       </div>

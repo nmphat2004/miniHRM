@@ -39,7 +39,19 @@ func main() {
 		log.Printf("Cảnh báo: Chưa kết nối được DynamoDB Local (%v).", err)
 	}
 
-	authSvc := auth.NewMockAuthService("super_secret_local_minihrm_key_32bytes")
+	var authSvc auth.AuthService = auth.NewMockAuthService("super_secret_local_minihrm_key_32bytes")
+	if poolID := os.Getenv("COGNITO_USER_POOL_ID"); poolID != "" {
+		region := os.Getenv("AWS_REGION")
+		if region == "" {
+			region = "ap-southeast-1"
+		}
+		clientID := os.Getenv("COGNITO_CLIENT_ID")
+		if clientID == "" {
+			log.Fatal("COGNITO_CLIENT_ID phải được cấu hình cùng COGNITO_USER_POOL_ID")
+		}
+		authSvc = auth.NewCognitoAuthService(region, poolID, clientID)
+		log.Printf("Sử dụng AWS Cognito User Pool %s tại %s", poolID, region)
+	}
 	deptSvc := service.NewDepartmentService(repo)
 	empSvc := service.NewEmployeeService(repo)
 	auditSvc := service.NewAuditService(repo)

@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"strings"
-
 	"mini-hrm-backend/internal/model"
 	"mini-hrm-backend/internal/repository"
 )
@@ -18,7 +16,7 @@ func NewAuditService(repo *repository.DynamoRepository) *AuditService {
 
 // ListAuditLogs trả về danh sách lịch sử kiểm toán theo Scoping
 func (s *AuditService) ListAuditLogs(ctx context.Context, actor *model.UserClaims, targetID string) ([]*model.AuditLog, error) {
-	if actor.Role != model.RoleAdmin && actor.Role != model.RoleManager {
+	if actor.Role != model.RoleAdmin {
 		return nil, ErrForbidden
 	}
 
@@ -35,12 +33,5 @@ func (s *AuditService) ListAuditLogs(ctx context.Context, actor *model.UserClaim
 		return logs, nil
 	}
 
-	// Với Manager: chỉ thấy logs liên quan đến phòng ban hoặc nhân viên của mình
-	var scopedLogs []*model.AuditLog
-	for _, l := range logs {
-		if strings.HasPrefix(l.TargetID, "dept-") || strings.HasPrefix(l.TargetID, "emp-") {
-			scopedLogs = append(scopedLogs, l)
-		}
-	}
-	return scopedLogs, nil
+	return logs, nil
 }
