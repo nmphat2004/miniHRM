@@ -6,6 +6,8 @@ Mini HRM is a local-first department and employee management application. Run Dy
 
 The Go API uses a single DynamoDB table (`mini_hrm_table`) with `PK` / `SK` and the `GSI1` index (`GSI1PK` / `GSI1SK`). Entity records and append-only audit entries share the table:
 
+For AWS DynamoDB, configure `AWS_REGION`, `AWS_PROFILE`, and `DYNAMODB_TABLE_NAME` in `backend/.env` (or the process environment), then authenticate the profile with `aws sso login --profile <profile>`. When `AWS_PROFILE` is set and `DYNAMODB_ENDPOINT` is omitted, the server and seed command use the AWS SDK credential chain. To use DynamoDB Local, set `DYNAMODB_ENDPOINT=http://localhost:8000`; without an AWS profile or endpoint, local mode is the default. The seed command loads `backend/.env` before connecting.
+
 | Record / access pattern | PK | SK | GSI1PK | GSI1SK |
 | --- | --- | --- | --- | --- |
 | Department metadata | `DEPT#<id>` | `METADATA` | `DEPT_PARENT#<parentId-or-ROOT>` | `PATH#<path>` |
@@ -33,7 +35,9 @@ Run `npm run backend:seed` after DynamoDB Local is available. Seed data includes
 
 ## Employee profile photos
 
-Admins and managers may add, replace, or remove an employee's profile photo through the profile edit form (managers remain scoped to their own branch). The browser converts JPG/PNG/WebP inputs to a small JPEG; the API validates JPEG/PNG content, dimensions at most 512×512, and a decoded size below 64 KiB. The optional data URL is stored on the employee item in DynamoDB Local so the feature works offline. Profile fields, photo, version check, and an audit event are written together in one transaction; audit entries record only whether a photo exists, never its binary content. For a larger deployment, move photo bytes to object storage and retain only an object key on the employee record to keep list reads lightweight.
+Admins and managers may add, replace, or remove an employee's profile photo through the profile edit form (managers remain scoped to their own branch). The browser converts JPG/PNG/WebP inputs to a small JPEG; the API validates JPEG/PNG content, dimensions at most 512×512, and a decoded size below 64 KiB. When `AVATAR_S3_BUCKET` is set, Go uploads the private image to S3 and DynamoDB stores only its object key. Reads return a one-hour presigned URL. The upload happens before the employee/audit transaction; failed DB writes trigger best-effort removal of the new object, while the previous object is deleted after a successful commit. Audit entries record only whether a photo exists, never its binary content. Without an S3 bucket configured, avatar writes are disabled; legacy data URLs remain readable for migration.
+
+Configure `AWS_REGION`, `AVATAR_S3_BUCKET`, and the AWS SDK credential chain (local AWS profile/SSO or the deployment role) in `backend/.env` or the process environment. The server loads `backend/.env` at startup without printing its values. The role needs `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on `arn:aws:s3:::<bucket>/employees/*`. Keep S3 Block Public Access enabled; uploads go through the Go API, so the bucket does not need browser CORS rules.
 
 ## Frontend design workflow
 

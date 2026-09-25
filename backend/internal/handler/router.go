@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"mini-hrm-backend/internal/auth"
+	"mini-hrm-backend/internal/avatar"
 	"mini-hrm-backend/internal/model"
 	"mini-hrm-backend/internal/repository"
 	"mini-hrm-backend/internal/service"
@@ -18,12 +20,13 @@ type contextKey string
 const actorContextKey contextKey = "actor_claims"
 
 type Server struct {
-	authSvc  auth.AuthService
-	deptSvc  *service.DepartmentService
-	empSvc   *service.EmployeeService
-	auditSvc *service.AuditService
-	repo     *repository.DynamoRepository
-	mux      *http.ServeMux
+	authSvc     auth.AuthService
+	deptSvc     *service.DepartmentService
+	empSvc      *service.EmployeeService
+	auditSvc    *service.AuditService
+	repo        *repository.DynamoRepository
+	avatarStore avatar.Store
+	mux         *http.ServeMux
 }
 
 func NewServer(
@@ -32,6 +35,7 @@ func NewServer(
 	empSvc *service.EmployeeService,
 	auditSvc *service.AuditService,
 	repo *repository.DynamoRepository,
+	avatarStores ...avatar.Store,
 ) *Server {
 	s := &Server{
 		authSvc:  authSvc,
@@ -40,6 +44,9 @@ func NewServer(
 		auditSvc: auditSvc,
 		repo:     repo,
 		mux:      http.NewServeMux(),
+	}
+	if len(avatarStores) > 0 {
+		s.avatarStore = avatarStores[0]
 	}
 	s.registerRoutes()
 	return s
@@ -143,7 +150,7 @@ func (s *Server) registerRoutes() {
 			Path:     "/",
 			HttpOnly: true,
 			Secure:   r.TLS != nil || os.Getenv("COOKIE_SECURE") == "true",
-			SameSite: http.SameSiteStrictMode,
+			SameSite: sessionCookieSameSite(),
 			MaxAge:   24 * 60 * 60,
 		})
 
@@ -168,7 +175,7 @@ func (s *Server) registerRoutes() {
 			Path:     "/",
 			HttpOnly: true,
 			Secure:   r.TLS != nil || os.Getenv("COOKIE_SECURE") == "true",
-			SameSite: http.SameSiteStrictMode,
+			SameSite: sessionCookieSameSite(),
 			MaxAge:   -1,
 		})
 		writeJSON(w, http.StatusOK, map[string]string{"message": "Đăng xuất thành công"})
@@ -409,6 +416,10 @@ func (s *Server) registerRoutes() {
 			s.handleError(w, err)
 			return
 		}
+		if err := s.attachAvatarURL(r.Context(), emp); err != nil {
+			s.handleError(w, err)
+			return
+		}
 		writeJSON(w, http.StatusOK, emp)
 	})
 
@@ -432,6 +443,10 @@ func (s *Server) registerRoutes() {
 		}
 		employee, err := s.empSvc.UpdateEmployee(r.Context(), claims, r.PathValue("id"), req.FullName, req.Title, req.JoinedAt, req.Version, req.Avatar)
 		if err != nil {
+			s.handleError(w, err)
+			return
+		}
+		if err := s.attachAvatarURL(r.Context(), employee); err != nil {
 			s.handleError(w, err)
 			return
 		}
@@ -563,6 +578,36 @@ func (s *Server) registerRoutes() {
 		}
 		writeJSON(w, http.StatusOK, logs)
 	})
+}
+
+func sessionCookieSameSite() http.SameSite {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("COOKIE_SAME_SITE"))) {
+	case "none":
+		return http.SameSiteNoneMode
+	case "lax":
+		return http.SameSiteLaxMode
+	default:
+		return http.SameSiteStrictMode
+	}
+}
+
+func (s *Server) attachAvatarURL(ctx context.Context, employee *model.Employee) error {
+	if employee.AvatarKey != "" {
+		if s.avatarStore == nil {
+			return service.ErrAvatarStorageUnavailable
+		}
+		url, err := s.avatarStore.URL(ctx, employee.AvatarKey)
+		if err != nil {
+			return err
+		}
+		employee.Avatar = url
+		return nil
+	}
+	// Keep displaying legacy data URLs while users migrate existing avatars to S3.
+	if strings.HasPrefix(employee.LegacyAvatar, "data:image/") {
+		employee.Avatar = employee.LegacyAvatar
+	}
+	return nil
 }
 
 func (s *Server) replayIdempotency(w http.ResponseWriter, r *http.Request) bool {

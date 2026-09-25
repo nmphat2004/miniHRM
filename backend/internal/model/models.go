@@ -48,7 +48,9 @@ type Employee struct {
 	ID             string         `json:"id" dynamodbav:"id"`
 	Code           string         `json:"code" dynamodbav:"code"`
 	FullName       string         `json:"fullName" dynamodbav:"fullName"`
-	Avatar         string         `json:"avatar,omitempty" dynamodbav:"avatar,omitempty"`
+	Avatar         string         `json:"avatar,omitempty" dynamodbav:"-"`
+	AvatarKey      string         `json:"-" dynamodbav:"avatarKey,omitempty"`
+	LegacyAvatar   string         `json:"-" dynamodbav:"avatar,omitempty"`
 	Email          string         `json:"email" dynamodbav:"email"`
 	DepartmentID   string         `json:"departmentId" dynamodbav:"departmentId"`
 	DepartmentName string         `json:"departmentName,omitempty" dynamodbav:"departmentName,omitempty"`

@@ -15,23 +15,30 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"mini-hrm-backend/internal/avatar"
 	"mini-hrm-backend/internal/model"
 	"mini-hrm-backend/internal/repository"
 )
 
 var (
-	ErrManagerCannotResign = errors.New("lỗi BR-NV-04: nhân viên đang là Trưởng phòng không thể nghỉ việc trước khi chuyển giao chức vụ")
-	ErrJoinDateTooFar      = errors.New("lỗi BR-NV-06: ngày vào làm không được muộn hơn hôm nay quá 90 ngày")
-	ErrManagerRoleTransfer = errors.New("lỗi BR-NV-05: nhân viên đang là Trưởng phòng. Cần xác nhận gỡ chức vụ trước khi chuyển phòng")
-	ErrInvalidAvatar       = errors.New("ảnh đại diện không hợp lệ: chỉ nhận JPG/PNG dưới 64 KB, tối đa 512×512 px")
+	ErrManagerCannotResign      = errors.New("lỗi BR-NV-04: nhân viên đang là Trưởng phòng không thể nghỉ việc trước khi chuyển giao chức vụ")
+	ErrJoinDateTooFar           = errors.New("lỗi BR-NV-06: ngày vào làm không được muộn hơn hôm nay quá 90 ngày")
+	ErrManagerRoleTransfer      = errors.New("lỗi BR-NV-05: nhân viên đang là Trưởng phòng. Cần xác nhận gỡ chức vụ trước khi chuyển phòng")
+	ErrInvalidAvatar            = errors.New("ảnh đại diện không hợp lệ: chỉ nhận JPG/PNG dưới 64 KB, tối đa 512×512 px")
+	ErrAvatarStorageUnavailable = errors.New("chưa cấu hình kho lưu ảnh S3")
 )
 
 type EmployeeService struct {
-	repo *repository.DynamoRepository
+	repo        *repository.DynamoRepository
+	avatarStore avatar.Store
 }
 
-func NewEmployeeService(repo *repository.DynamoRepository) *EmployeeService {
-	return &EmployeeService{repo: repo}
+func NewEmployeeService(repo *repository.DynamoRepository, stores ...avatar.Store) *EmployeeService {
+	service := &EmployeeService{repo: repo}
+	if len(stores) > 0 {
+		service.avatarStore = stores[0]
+	}
+	return service
 }
 
 // CreateEmployee tạo nhân viên mới
@@ -278,13 +285,30 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, actor *model.UserC
 	if employee.JoinedAt != joinedAt {
 		before["joinedAt"], after["joinedAt"] = employee.JoinedAt, joinedAt
 	}
-	avatarChanged := avatar != nil && *avatar != employee.Avatar
+	oldAvatarKey := employee.AvatarKey
+	oldAvatarExists := oldAvatarKey != "" || employee.LegacyAvatar != ""
+	avatarChanged := avatar != nil && ((*avatar == "" && oldAvatarExists) || (*avatar != ""))
+	newAvatarKey := oldAvatarKey
 	if avatarChanged {
 		if err := validateAvatar(*avatar); err != nil {
 			return nil, err
 		}
+		newAvatarKey = ""
+		if *avatar != "" {
+			if s.avatarStore == nil {
+				return nil, ErrAvatarStorageUnavailable
+			}
+			data, contentType, err := avatarPayload(*avatar)
+			if err != nil {
+				return nil, err
+			}
+			newAvatarKey, err = s.avatarStore.Put(ctx, employee.ID, contentType, data)
+			if err != nil {
+				return nil, err
+			}
+		}
 		// Audit only the presence of the photo, never its binary data.
-		before["avatar"], after["avatar"] = employee.Avatar != "", *avatar != ""
+		before["avatar"], after["avatar"] = oldAvatarExists, *avatar != ""
 	}
 	if len(after) == 0 {
 		return employee, nil
@@ -300,10 +324,18 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, actor *model.UserC
 	audit := &model.AuditLog{ID: uuid.New().String(), ActorID: actor.UserID, ActorName: actor.Username, Action: action, TargetType: "Employee", TargetID: employee.ID, TargetName: fullName, Before: before, After: after, OccurredAt: time.Now().UTC()}
 	employee.FullName, employee.Title, employee.JoinedAt = fullName, title, joinedAt
 	if avatarChanged {
-		employee.Avatar = *avatar
+		employee.AvatarKey = newAvatarKey
+		employee.LegacyAvatar = ""
+		employee.Avatar = ""
 	}
 	if err := s.repo.UpdateEmployeeAtomic(ctx, employee, audit, avatarChanged); err != nil {
+		if avatarChanged && newAvatarKey != "" && newAvatarKey != oldAvatarKey {
+			_ = s.avatarStore.Delete(ctx, newAvatarKey)
+		}
 		return nil, err
+	}
+	if avatarChanged && oldAvatarKey != "" && oldAvatarKey != newAvatarKey {
+		_ = s.avatarStore.Delete(ctx, oldAvatarKey)
 	}
 	return employee, nil
 }
@@ -312,22 +344,28 @@ func validateAvatar(avatar string) error {
 	if avatar == "" {
 		return nil
 	}
+	_, _, err := avatarPayload(avatar)
+	return err
+}
+
+func avatarPayload(avatar string) ([]byte, string, error) {
 	parts := strings.SplitN(avatar, ",", 2)
 	if len(parts) != 2 || (parts[0] != "data:image/jpeg;base64" && parts[0] != "data:image/png;base64") || len(parts[1]) > base64.StdEncoding.EncodedLen(64*1024) {
-		return ErrInvalidAvatar
+		return nil, "", ErrInvalidAvatar
 	}
 	data, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil || len(data) == 0 || len(data) > 64*1024 {
-		return ErrInvalidAvatar
+		return nil, "", ErrInvalidAvatar
 	}
-	if http.DetectContentType(data) != strings.TrimSuffix(strings.TrimPrefix(parts[0], "data:"), ";base64") {
-		return ErrInvalidAvatar
+	contentType := strings.TrimSuffix(strings.TrimPrefix(parts[0], "data:"), ";base64")
+	if http.DetectContentType(data) != contentType {
+		return nil, "", ErrInvalidAvatar
 	}
 	config, _, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil || config.Width < 1 || config.Height < 1 || config.Width > 512 || config.Height > 512 {
-		return ErrInvalidAvatar
+		return nil, "", ErrInvalidAvatar
 	}
-	return nil
+	return data, contentType, nil
 }
 
 // TransferEmployee thực thi UC-03 (Chuyển phòng ban)

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"mini-hrm-backend/internal/model"
@@ -13,8 +16,13 @@ import (
 
 func main() {
 	ctx := context.Background()
+	loadDotEnv(".env")
+	region := strings.TrimSpace(os.Getenv("AWS_REGION"))
+	if region == "" {
+		region = "ap-southeast-1"
+	}
 	dynamoEndpoint := os.Getenv("DYNAMODB_ENDPOINT")
-	if dynamoEndpoint == "" {
+	if dynamoEndpoint == "" && !useAWSDatabase() {
 		dynamoEndpoint = "http://localhost:8000"
 	}
 
@@ -23,9 +31,13 @@ func main() {
 		tableName = "mini_hrm_table"
 	}
 
-	log.Printf("Đang nạp dữ liệu mẫu tối thiểu (Seed Data) vào %s...", dynamoEndpoint)
+	if dynamoEndpoint == "" {
+		log.Printf("Đang nạp dữ liệu mẫu tối thiểu vào DynamoDB AWS region %s (bảng %s)...", region, tableName)
+	} else {
+		log.Printf("Đang nạp dữ liệu mẫu tối thiểu vào %s (bảng %s)...", dynamoEndpoint, tableName)
+	}
 
-	repo, err := repository.NewDynamoRepository(ctx, dynamoEndpoint, "ap-southeast-1", tableName)
+	repo, err := repository.NewDynamoRepository(ctx, dynamoEndpoint, region, tableName)
 	if err != nil {
 		log.Fatalf("Lỗi kết nối: %v", err)
 	}
@@ -279,4 +291,39 @@ func main() {
 	fmt.Println("  5. 1 Phòng ban ARCHIVED: OLD_PROJECT")
 	fmt.Println("  6. 1 Nhân sự RESIGNED: Bảo (xóa mềm)")
 	fmt.Println("========================================================")
+}
+
+func useAWSDatabase() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("DYNAMODB_USE_AWS")), "true") || strings.TrimSpace(os.Getenv("AWS_PROFILE")) != ""
+}
+
+// loadDotEnv makes the seed command use the same backend/.env configuration
+// as the server without overriding variables already set by the shell.
+func loadDotEnv(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "export ")
+		key, value, found := strings.Cut(line, "=")
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		if !found || key == "" || os.Getenv(key) != "" {
+			continue
+		}
+		if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
+			if decoded, decodeErr := strconv.Unquote(value); decodeErr == nil {
+				value = decoded
+			}
+		} else if len(value) >= 2 && value[0] == '\'' && value[len(value)-1] == '\'' {
+			value = value[1 : len(value)-1]
+		}
+		_ = os.Setenv(key, value)
+	}
 }

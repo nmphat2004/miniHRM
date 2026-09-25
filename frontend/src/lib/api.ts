@@ -1,5 +1,5 @@
-// API Client kết nối trực tiếp với Mini HRM Go Backend tại http://localhost:8080/api/v1
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+// Override with NEXT_PUBLIC_API_URL when running against another environment.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://4lh3vbgsp1.execute-api.ap-southeast-1.amazonaws.com/api/v1').replace(/\/$/, '');
 
 export interface UserClaims {
   userId: string;

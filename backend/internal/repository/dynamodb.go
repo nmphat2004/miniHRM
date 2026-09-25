@@ -43,11 +43,13 @@ func NewDynamoRepository(ctx context.Context, endpoint, region, tableName string
 				SigningRegion: region,
 			}, nil
 		})
-		cfg, err = config.LoadDefaultConfig(ctx,
-			config.WithRegion(region),
-			config.WithEndpointResolverWithOptions(customResolver),
-			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("dummy", "dummy", "")),
-		)
+		// DynamoDB Local must not require or inspect an AWS shared profile. In
+		// particular, a missing AWS_PROFILE must not prevent local app startup.
+		cfg = aws.Config{
+			Region:                      region,
+			Credentials:                 credentials.NewStaticCredentialsProvider("dummy", "dummy", ""),
+			EndpointResolverWithOptions: customResolver,
+		}
 	} else {
 		cfg, err = config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	}
@@ -706,11 +708,11 @@ func (r *DynamoRepository) UpdateEmployeeAtomic(ctx context.Context, employee *m
 		":old": &types.AttributeValueMemberN{Value: fmt.Sprint(oldVersion)}, ":next": &types.AttributeValueMemberN{Value: fmt.Sprint(employee.Version)}, ":updated": &types.AttributeValueMemberS{Value: employee.UpdatedAt.Format(time.RFC3339)},
 	}
 	if avatarChanged {
-		if employee.Avatar == "" {
-			updateExpression += " REMOVE avatar"
+		if employee.AvatarKey == "" {
+			updateExpression += " REMOVE avatarKey, avatar"
 		} else {
-			updateExpression += ", avatar = :avatar"
-			values[":avatar"] = &types.AttributeValueMemberS{Value: employee.Avatar}
+			updateExpression += ", avatarKey = :avatarKey REMOVE avatar"
+			values[":avatarKey"] = &types.AttributeValueMemberS{Value: employee.AvatarKey}
 		}
 	}
 	_, err = r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: []types.TransactWriteItem{
